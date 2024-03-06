@@ -42,7 +42,7 @@
 #include <Python.h>
 #include <so3_math.h>
 #include <ros/ros.h>
-#include <Eigen/Core>
+#include <Eigen/Dense>
 #include "IMU_Processing.hpp"
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
@@ -132,6 +132,8 @@ esekfom::esekf<state_ikfom, 12, input_ikfom> kf;
 state_ikfom state_point;
 vect3 pos_lid;
 
+Eigen::Quaterniond q_Grav_w; // transform from world to gravity_world
+
 nav_msgs::Path path;
 nav_msgs::Odometry odomAftMapped;
 geometry_msgs::Quaternion geoQuat;
@@ -201,6 +203,9 @@ void RGBpointBodyToWorld(PointType const * const pi, PointType * const po)
 {
     V3D p_body(pi->x, pi->y, pi->z);
     V3D p_global(state_point.rot * (state_point.offset_R_L_I*p_body + state_point.offset_T_L_I) + state_point.pos);
+
+    //jianping
+    p_global = q_Grav_w*p_global;
 
     po->x = p_global(0);
     po->y = p_global(1);
@@ -548,8 +553,8 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
         char filename_pos[256];
         sprintf(filename_pos,"%s/%.3lf.odom",pcd_root_path.c_str(),current_frame_time);
         FILE *fp = fopen(filename_pos,"w");
-        Eigen::Matrix3d rot = state_point.rot.toRotationMatrix();
-        Eigen::Vector3d t = state_point.pos;
+        Eigen::Matrix3d rot = q_Grav_w*state_point.rot.toRotationMatrix();
+        Eigen::Vector3d t = q_Grav_w*state_point.pos;
         fprintf(fp,"%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n 0 0 0 1",
             rot(0,0),rot(0,1),rot(0,2),t(0),
             rot(1,0),rot(1,1),rot(1,2),t(1),
@@ -608,13 +613,26 @@ void publish_map(const ros::Publisher & pubLaserCloudMap)
 template<typename T>
 void set_posestamp(T & out)
 {
-    out.pose.position.x = state_point.pos(0);
-    out.pose.position.y = state_point.pos(1);
-    out.pose.position.z = state_point.pos(2);
-    out.pose.orientation.x = geoQuat.x;
-    out.pose.orientation.y = geoQuat.y;
-    out.pose.orientation.z = geoQuat.z;
-    out.pose.orientation.w = geoQuat.w;
+    //jianping
+    
+    Eigen::Vector3d pos_grav = q_Grav_w*Eigen::Vector3d(state_point.pos(0),state_point.pos(1),state_point.pos(2));
+    Eigen::Quaterniond q_grav(q_Grav_w*state_point.rot.toRotationMatrix());
+
+    out.pose.position.x = pos_grav(0);
+    out.pose.position.y = pos_grav(1);
+    out.pose.position.z = pos_grav(2);
+    out.pose.orientation.x = q_grav.x();
+    out.pose.orientation.y = q_grav.y();
+    out.pose.orientation.z = q_grav.z();
+    out.pose.orientation.w = q_grav.w();
+
+    // out.pose.position.x = state_point.pos(0);
+    // out.pose.position.y = state_point.pos(1);
+    // out.pose.position.z = state_point.pos(2);
+    // out.pose.orientation.x = geoQuat.x;
+    // out.pose.orientation.y = geoQuat.y;
+    // out.pose.orientation.z = geoQuat.z;
+    // out.pose.orientation.w = geoQuat.w;
     
 }
 
@@ -919,6 +937,11 @@ int main(int argc, char** argv)
             p_imu->Process(Measures, kf, feats_undistort);
             state_point = kf.get_x();
             pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
+
+            // jianping, calculate q_Grav_w
+            Eigen::Vector3d gravVec(state_point.grav[0],state_point.grav[1],state_point.grav[2]);
+            q_Grav_w = Eigen::Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1));
+            
 
             if (feats_undistort->empty() || (feats_undistort == NULL))
             {
