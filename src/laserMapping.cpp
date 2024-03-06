@@ -71,6 +71,7 @@ double T1[MAXN], s_plot[MAXN], s_plot2[MAXN], s_plot3[MAXN], s_plot4[MAXN], s_pl
 double match_time = 0, solve_time = 0, solve_const_H_time = 0;
 int    kdtree_size_st = 0, kdtree_size_end = 0, add_point_size = 0, kdtree_delete_counter = 0;
 bool   runtime_pos_log = false, pcd_save_en = false, time_sync_en = false, extrinsic_est_en = true, path_en = true;
+string pcd_root_path;
 /**************************/
 
 float res_last[100000] = {0.0};
@@ -496,32 +497,68 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
     /**************** save map ****************/
     /* 1. make sure you have enough memories
     /* 2. noted that pcd save will influence the real-time performences **/
-    if (pcd_save_en)
-    {
-        int size = feats_undistort->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld( \
-                        new PointCloudXYZI(size, 1));
+    // if (pcd_save_en)
+    // {
+    //     int size = feats_undistort->points.size();
+    //     PointCloudXYZI::Ptr laserCloudWorld( \
+    //                     new PointCloudXYZI(size, 1));
 
+    //     for (int i = 0; i < size; i++)
+    //     {
+    //         RGBpointBodyToWorld(&feats_undistort->points[i], \
+    //                             &laserCloudWorld->points[i]);
+    //     }
+    //     *pcl_wait_save += *laserCloudWorld;
+
+    //     static int scan_wait_num = 0;
+    //     scan_wait_num ++;
+    //     if (pcl_wait_save->size() > 0 && pcd_save_interval > 0  && scan_wait_num >= pcd_save_interval)
+    //     {
+    //         pcd_index ++;
+    //         string all_points_dir(string(string(ROOT_DIR) + "PCD/scans_") + to_string(pcd_index) + string(".pcd"));
+    //         pcl::PCDWriter pcd_writer;
+    //         cout << "current scan saved to /PCD/" << all_points_dir << endl;
+    //         pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
+    //         pcl_wait_save->clear();
+    //         scan_wait_num = 0;
+    //     }
+    // }
+
+    // jianping
+    // save data for postprocessing
+    if(pcd_save_en){
+        int size = feats_undistort->points.size();
+        double current_frame_time = Measures.lidar_beg_time;
+        PointCloudXYZI::Ptr laserCloudBody( new PointCloudXYZI(size, 1));
+        // transform 2 body frame
         for (int i = 0; i < size; i++)
         {
-            RGBpointBodyToWorld(&feats_undistort->points[i], \
-                                &laserCloudWorld->points[i]);
+            V3D p_lidar(feats_undistort->points[i].x, feats_undistort->points[i].y, feats_undistort->points[i].z);
+            V3D p_body(state_point.offset_R_L_I*p_lidar + state_point.offset_T_L_I);
+            laserCloudBody->points[i].x = p_body(0);
+            laserCloudBody->points[i].y = p_body(1);
+            laserCloudBody->points[i].z = p_body(2);
+            laserCloudBody->points[i].intensity = feats_undistort->points[i].intensity;
         }
-        *pcl_wait_save += *laserCloudWorld;
+        
+        char filename[256];
+        sprintf(filename,"%s/%.3lf.pcd",pcd_root_path.c_str(),current_frame_time);
+        pcl::io::savePCDFile<PointType>(filename,*laserCloudBody);
 
-        static int scan_wait_num = 0;
-        scan_wait_num ++;
-        if (pcl_wait_save->size() > 0 && pcd_save_interval > 0  && scan_wait_num >= pcd_save_interval)
-        {
-            pcd_index ++;
-            string all_points_dir(string(string(ROOT_DIR) + "PCD/scans_") + to_string(pcd_index) + string(".pcd"));
-            pcl::PCDWriter pcd_writer;
-            cout << "current scan saved to /PCD/" << all_points_dir << endl;
-            pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
-            pcl_wait_save->clear();
-            scan_wait_num = 0;
-        }
+        char filename_pos[256];
+        sprintf(filename_pos,"%s/%.3lf.odom",pcd_root_path.c_str(),current_frame_time);
+        FILE *fp = fopen(filename_pos,"w");
+        Eigen::Matrix3d rot = state_point.rot.toRotationMatrix();
+        Eigen::Vector3d t = state_point.pos;
+        fprintf(fp,"%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n 0 0 0 1",
+            rot(0,0),rot(0,1),rot(0,2),t(0),
+            rot(1,0),rot(1,1),rot(1,2),t(1),
+            rot(2,0),rot(2,1),rot(2,2),t(2));
+
+        fclose(fp);
+        
     }
+
 }
 
 void publish_frame_body(const ros::Publisher & pubLaserCloudFull_body)
@@ -783,6 +820,7 @@ int main(int argc, char** argv)
     nh.param<bool>("runtime_pos_log_enable", runtime_pos_log, 0);
     nh.param<bool>("mapping/extrinsic_est_en", extrinsic_est_en, true);
     nh.param<bool>("pcd_save/pcd_save_en", pcd_save_en, false);
+    nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/livox/lidar");
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
