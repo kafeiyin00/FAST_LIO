@@ -132,6 +132,7 @@ esekfom::esekf<state_ikfom, 12, input_ikfom> kf;
 state_ikfom state_point;
 vect3 pos_lid;
 
+bool b_q_Grav_w_caclulated = false;
 Eigen::Quaterniond q_Grav_w; // transform from world to gravity_world
 
 nav_msgs::Path path;
@@ -617,6 +618,7 @@ void set_posestamp(T & out)
     
     Eigen::Vector3d pos_grav = q_Grav_w*Eigen::Vector3d(state_point.pos(0),state_point.pos(1),state_point.pos(2));
     Eigen::Quaterniond q_grav(q_Grav_w*state_point.rot.toRotationMatrix());
+    q_grav.normalize();
 
     out.pose.position.x = pos_grav(0);
     out.pose.position.y = pos_grav(1);
@@ -939,8 +941,14 @@ int main(int argc, char** argv)
             pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
 
             // jianping, calculate q_Grav_w
-            Eigen::Vector3d gravVec(state_point.grav[0],state_point.grav[1],state_point.grav[2]);
-            q_Grav_w = Eigen::Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1));
+            if(!b_q_Grav_w_caclulated)
+            {
+                Eigen::Vector3d gravVec(state_point.grav[0],state_point.grav[1],state_point.grav[2]);
+                q_Grav_w = Eigen::Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1));
+                q_Grav_w.normalize();
+                std::cout<<"q_Grav_w: " << q_Grav_w.coeffs()<<"\n";
+                b_q_Grav_w_caclulated = true;
+            }
             
 
             if (feats_undistort->empty() || (feats_undistort == NULL))
