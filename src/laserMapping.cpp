@@ -70,8 +70,9 @@ double kdtree_incremental_time = 0.0, kdtree_search_time = 0.0, kdtree_delete_ti
 double T1[MAXN], s_plot[MAXN], s_plot2[MAXN], s_plot3[MAXN], s_plot4[MAXN], s_plot5[MAXN], s_plot6[MAXN], s_plot7[MAXN], s_plot8[MAXN], s_plot9[MAXN], s_plot10[MAXN], s_plot11[MAXN];
 double match_time = 0, solve_time = 0, solve_const_H_time = 0;
 int    kdtree_size_st = 0, kdtree_size_end = 0, add_point_size = 0, kdtree_delete_counter = 0;
-bool   runtime_pos_log = false, pcd_save_en = false, time_sync_en = false, extrinsic_est_en = true, path_en = true;
+bool   runtime_pos_log = false, pcd_save_en = false, trajectory_save_en = true, time_sync_en = false, extrinsic_est_en = true, path_en = true;
 string pcd_root_path;
+FILE* file_trajectory;
 /**************************/
 
 float res_last[100000] = {0.0};
@@ -534,7 +535,7 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
     // save data for postprocessing
     if(pcd_save_en){
         int size = feats_undistort->points.size();
-        double current_frame_time = Measures.lidar_beg_time;
+        double current_frame_time = Measures.lidar_end_time;
         PointCloudXYZI::Ptr laserCloudBody( new PointCloudXYZI(size, 1));
         // transform 2 body frame
         for (int i = 0; i < size; i++)
@@ -549,7 +550,7 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
         
         char filename[256];
         sprintf(filename,"%s/%.3lf.pcd",pcd_root_path.c_str(),current_frame_time);
-        pcl::io::savePCDFile<PointType>(filename,*laserCloudBody);
+        pcl::io::savePCDFileBinary<PointType>(filename,*laserCloudBody);
 
         char filename_pos[256];
         sprintf(filename_pos,"%s/%.3lf.odom",pcd_root_path.c_str(),current_frame_time);
@@ -563,6 +564,18 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
 
         fclose(fp);
         
+    }
+    if(trajectory_save_en)
+    {
+        double current_frame_time = Measures.lidar_beg_time;
+        Eigen::Quaterniond q(q_Grav_w*state_point.rot.toRotationMatrix());
+        Eigen::Vector3d t = q_Grav_w*state_point.pos;
+        //body frame in TUM format
+        fprintf(file_trajectory,"%10.3f %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f %10.3f\n",
+        current_frame_time,
+        t(0),t(1),t(2),
+        q.x(),q.y(),q.z(),q.w());
+        fflush(file_trajectory);
     }
 
 }
@@ -840,11 +853,22 @@ int main(int argc, char** argv)
     nh.param<bool>("runtime_pos_log_enable", runtime_pos_log, 0);
     nh.param<bool>("mapping/extrinsic_est_en", extrinsic_est_en, true);
     nh.param<bool>("pcd_save/pcd_save_en", pcd_save_en, false);
+    nh.param<bool>("pcd_save/trajectory_save_en",trajectory_save_en,false);
     nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/livox/lidar");
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
     cout<<"p_pre->lidar_type "<<p_pre->lidar_type<<endl;
+
+    if(trajectory_save_en)
+    {
+        std::stringstream ss;
+        ss << pcd_root_path << "/trajectory_" << ros::Time::now().toNSec()<<".txt";
+        file_trajectory = fopen(ss.str().c_str(),"w");
+        cout<<"pcd_root_path: "<< pcd_root_path<<"\n";
+    }
+
+    
     
     path.header.stamp    = ros::Time::now();
     path.header.frame_id ="camera_init";
@@ -1112,6 +1136,8 @@ int main(int argc, char** argv)
         }
         fclose(fp2);
     }
+
+    fclose(file_trajectory);
 
     return 0;
 }
