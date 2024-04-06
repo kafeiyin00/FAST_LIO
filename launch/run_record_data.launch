@@ -1,0 +1,11 @@
+<launch>
+
+    <arg name="autorun"     default="false"/>
+
+    <param name="image_msg_name"  type="string"   value="/camera0/compressed"/>
+    <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
+    <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
+    <param name="dataFolder"  type="string"   value="/home/ljp/DATA/frames"/>
+    <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
+
+</launch>

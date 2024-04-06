@@ -5,11 +5,11 @@
 
     <!-- MCDVIRAL dataset, downloadable at mcdviral.github.io. -->
     
-    <arg name="data_path" default="/media/iot/JianpingData/MCDVIRAL/"/>
+    <arg name="data_path" default="/home/ljp/DATA"/>
     <!-- <arg name="data_path" default="/media/tmn/mySataSSD1/DATASETS/MCDVIRAL/PublishedSequencesUnzipped"/> -->
 
-    <!-- <arg  name="bag_file"  default="$(arg data_path)/ntu_day_01/*.bag"/> -->
-    <arg  name="bag_file"  default="$(arg data_path)/kth_day_06/*.bag"/>
+    <arg  name="bag_file"  default="$(arg data_path)/ntu_day_01/*.bag"/>
+    <!-- <arg  name="bag_file"  default="$(arg data_path)/kth_day_06/*.bag"/> -->
     <!-- <arg  name="bag_file"  default="$(arg data_path)/tuhh_day_03/*.bag"/> -->
 
     <!-- Chose the config file based on the sequence names -->
@@ -23,9 +23,9 @@
     <param name="feature_extract_enable"  type="bool"   value="0"/>
     <param name="point_filter_num"        type="int"    value="1"/>
     <param name="max_iteration"           type="int"    value="5" />
-    <param name="filter_size_surf"        type="double" value="0.2" />
-    <param name="filter_size_map"         type="double" value="0.2" />
-    <param name="cube_side_length"        type="double" value="5000" />
+    <param name="filter_size_surf"        type="double" value="0.5" />
+    <param name="filter_size_map"         type="double" value="0.5" />
+    <param name="cube_side_length"        type="double" value="3000" />
     <param name="runtime_pos_log_enable"  type="bool"   value="0" />
     <param name="exp_log_dir"             type="string" value="$(arg exp_log_dir)"/>
     <node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen"/>
@@ -34,7 +34,7 @@
 
     <!-- <param name="/use_sim_time" value="true" /> -->
     <node required="$(arg autorun)" pkg="rosbag" type="play" name="rosbag_player"
-          args="--clock $(arg bag_file) -r 1.0 -s 0"
+          args="--clock $(arg bag_file) -r 10.0 -s 0"
           launch-prefix="bash -c 'sleep 1; $0 $@' "/>
 
     <!-- <node pkg="tf2_ros" type="static_transform_publisher"
