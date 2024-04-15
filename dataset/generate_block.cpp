@@ -71,9 +71,14 @@ void transformAndOutput(std::vector<nav_msgs::Odometry> currentOdoMsg,
         char posFileName[256];
         char pclFileName[256];
         char imgFileName[256];
-        sprintf(posFileName,"%s/%10.3f.pos",dataFolder.c_str(),currentTime);
-        sprintf(pclFileName,"%s/%10.3f.pcd",dataFolder.c_str(),currentTime);
-        sprintf(imgFileName,"%s/%10.3f.jpg",dataFolder.c_str(),currentTime);
+
+        uint sec = currentTime;
+        uint nsec = (currentTime-sec)*1e9;
+
+        // must use the format of sec_nsec
+        sprintf(posFileName,"%s/%d_%d.odom",dataFolder.c_str(),sec,nsec);
+        sprintf(pclFileName,"%s/%d_%d.pcd",dataFolder.c_str(),sec,nsec);
+        sprintf(imgFileName,"%s/%d_%d.jpg",dataFolder.c_str(),sec,nsec);
 
         Eigen::Quaterniond ref_q;
         ref_q.x() = currentOdoMsg[id_ref].pose.pose.orientation.x;
