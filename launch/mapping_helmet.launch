@@ -4,8 +4,8 @@
     <arg name="exp_log_dir" default="false"/>
 
 	<arg name="rviz" default="true" />
-    <arg name="bag_file"  default="/home/ljp/DATA/4_Infrustracture_2021-11-14-09-18-30_fastlio.bag"/>
-	<!-- <arg name="bag_file"  default="/media/iot/JianpingData/WHU_Helmet/6.1_roadside_campus_2021-11-12-10-10-57_fastlio.bag"/> -->
+    <!-- <arg name="bag_file"  default="/home/ljp/DATA/4_Infrustracture_2021-11-14-09-18-30_fastlio.bag"/> -->
+	<arg name="bag_file"  default="/home/ljp/DATA/6.1_roadside_campus_2021-11-12-10-10-57_fastlio.bag"/>
 	
 
 	<rosparam command="load" file="$(find fast_lio)/config/helmet_mid.yaml" />
