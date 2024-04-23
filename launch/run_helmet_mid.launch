@@ -1,27 +1,22 @@
 <launch>
-<!-- Launch file for Livox AVIA LiDAR -->
+<!-- Launch file for Livox MID360 LiDAR -->
     <arg name="autorun"     default="false"/>
-    <arg name="exp_log_dir" default="false"/>
 
 	<arg name="rviz" default="true" />
-    <!-- <arg name="bag_file"  default="/home/ljp/DATA/4_Infrustracture_2021-11-14-09-18-30_fastlio.bag"/> -->
-	<arg name="bag_file"  default="/media/iot/JianpingData/WHU_Helmet/6.1_roadside_campus_2021-11-12-10-10-57_fastlio.bag"/>
-	<!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/0319/2024-03-19-16-18-46.bag"/> -->
-	
-	
 
-	<rosparam command="load" file="$(find fast_lio)/config/helmet_mid.yaml" />
+	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
+    <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/>
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
 	<param name="point_filter_num" type="int" value="3"/>
-	<param name="max_iteration" type="int" value="5" />
-	<param name="filter_size_surf" type="double" value="0.3" />
-	<param name="filter_size_map" type="double" value="0.3" />
-	<param name="cube_side_length" type="double" value="3000" />
+	<param name="max_iteration" type="int" value="20" />
+	<param name="filter_size_surf" type="double" value="0.4" />
+	<param name="filter_size_map" type="double" value="0.4" />
+	<param name="cube_side_length" type="double" value="1000" />
 	<param name="runtime_pos_log_enable" type="bool" value="0" />
     <node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen" /> 
 
-	<param name="image_msg_name"  type="string"   value="/camera0/compressed"/>
+    <param name="image_msg_name"  type="string"   value="/camera0/compressed"/>
     <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
     <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
