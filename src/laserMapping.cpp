@@ -536,33 +536,36 @@ void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
     if(pcd_save_en){
         int size = feats_undistort->points.size();
         double current_frame_time = Measures.lidar_end_time;
-        PointCloudXYZI::Ptr laserCloudBody( new PointCloudXYZI(size, 1));
+        PointCloudXYZI::Ptr laserCloudWorld( new PointCloudXYZI(size, 1));
         // transform 2 body frame
         for (int i = 0; i < size; i++)
         {
             V3D p_lidar(feats_undistort->points[i].x, feats_undistort->points[i].y, feats_undistort->points[i].z);
             V3D p_body(state_point.offset_R_L_I*p_lidar + state_point.offset_T_L_I);
-            laserCloudBody->points[i].x = p_body(0);
-            laserCloudBody->points[i].y = p_body(1);
-            laserCloudBody->points[i].z = p_body(2);
-            laserCloudBody->points[i].intensity = feats_undistort->points[i].intensity;
+            Eigen::Matrix3d rot = q_Grav_w*state_point.rot.toRotationMatrix();
+            Eigen::Vector3d t = q_Grav_w*state_point.pos;
+            V3D p_world(rot*state_point.offset_R_L_I*p_body + t);
+            laserCloudWorld->points[i].x = p_world(0);
+            laserCloudWorld->points[i].y = p_world(1);
+            laserCloudWorld->points[i].z = p_world(2);
+            laserCloudWorld->points[i].intensity = feats_undistort->points[i].intensity;
         }
         
         char filename[256];
         sprintf(filename,"%s/%.3lf.pcd",pcd_root_path.c_str(),current_frame_time);
-        pcl::io::savePCDFileBinary<PointType>(filename,*laserCloudBody);
+        pcl::io::savePCDFileBinary<PointType>(filename,*laserCloudWorld);
 
-        char filename_pos[256];
-        sprintf(filename_pos,"%s/%.3lf.odom",pcd_root_path.c_str(),current_frame_time);
-        FILE *fp = fopen(filename_pos,"w");
-        Eigen::Matrix3d rot = q_Grav_w*state_point.rot.toRotationMatrix();
-        Eigen::Vector3d t = q_Grav_w*state_point.pos;
-        fprintf(fp,"%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n 0 0 0 1",
-            rot(0,0),rot(0,1),rot(0,2),t(0),
-            rot(1,0),rot(1,1),rot(1,2),t(1),
-            rot(2,0),rot(2,1),rot(2,2),t(2));
+        // char filename_pos[256];
+        // sprintf(filename_pos,"%s/%.3lf.odom",pcd_root_path.c_str(),current_frame_time);
+        // FILE *fp = fopen(filename_pos,"w");
+        // Eigen::Matrix3d rot = q_Grav_w*state_point.rot.toRotationMatrix();
+        // Eigen::Vector3d t = q_Grav_w*state_point.pos;
+        // fprintf(fp,"%f %f %f %f\n %f %f %f %f\n %f %f %f %f\n 0 0 0 1",
+        //     rot(0,0),rot(0,1),rot(0,2),t(0),
+        //     rot(1,0),rot(1,1),rot(1,2),t(1),
+        //     rot(2,0),rot(2,1),rot(2,2),t(2));
 
-        fclose(fp);
+        // fclose(fp);
         
     }
     if(trajectory_save_en)
