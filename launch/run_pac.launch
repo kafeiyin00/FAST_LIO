@@ -1,18 +1,17 @@
 <launch>
-<!-- Launch file for Livox MID360 LiDAR -->
+
     <arg name="autorun"     default="false"/>
 
 	<arg name="rviz" default="true" />
 
-	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
-    <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/media/iot/JianpingData/rotation_lidar/2024-10-01-11-29-52.bag"/> 
+	<rosparam command="load" file="$(find fast_lio)/config/pac.yaml" />
+	<arg name="bag_file"  default="/home/iot/data/PSA/PrimeMover_PSA_Loc_2024-03-14-16-36-32_0.bag"/> 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
 	<param name="point_filter_num" type="int" value="3"/>
-	<param name="max_iteration" type="int" value="10" />
-	<param name="filter_size_surf" type="double" value="0.2" />
-	<param name="filter_size_map" type="double" value="0.2" />
+	<param name="max_iteration" type="int" value="20" />
+	<param name="filter_size_surf" type="double" value="0.4" />
+	<param name="filter_size_map" type="double" value="0.4" />
 	<param name="cube_side_length" type="double" value="1000" />
 	<param name="runtime_pos_log_enable" type="bool" value="0" />
     <node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen" /> 

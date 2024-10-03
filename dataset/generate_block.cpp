@@ -122,7 +122,7 @@ void process()
             pcl_buf.pop();
 
             // next image
-            if(currentOdoMsg.size() >= 10)
+            if(currentOdoMsg.size() >= 50)
             {
                 // save process
                 transformAndOutput(currentOdoMsg,currentPclMsg);
