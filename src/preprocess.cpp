@@ -77,6 +77,10 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   case VELO16:
     velodyne_handler(msg);
     break;
+
+  case MARSIM:
+    marsim_handler(msg);
+    break;
   
   default:
     printf("Error LiDAR Type");
@@ -450,6 +454,52 @@ void Preprocess::velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
       }
     }
 }
+
+void Preprocess::marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+{
+  static int scan_count = 0;
+  scan_count++;
+
+  pl_surf.clear();
+  pl_corn.clear();
+  pl_full.clear();
+
+
+  pcl::PointCloud<pcl::PointXYZ> pl_orig;
+  pcl::fromROSMsg(*msg, pl_orig);
+  int plsize = pl_orig.points.size();
+  pl_surf.reserve(plsize);
+
+  given_offset_time = false;
+
+  int real_point_filter_num = point_filter_num;
+
+  if(1)
+  {
+      for (int i = 0; i < plsize; i++)
+      {
+          PointType added_pt;
+          added_pt.normal_x = 0;
+          added_pt.normal_y = 0;
+          added_pt.normal_z = 0;
+          added_pt.x = pl_orig.points[i].x;
+          added_pt.y = pl_orig.points[i].y;
+          added_pt.z = pl_orig.points[i].z;
+          added_pt.intensity = 0;
+          added_pt.curvature = i*1e-9; //ms
+
+          double dist = added_pt.x * added_pt.x + added_pt.y * added_pt.y + added_pt.z * added_pt.z;
+          if ( dist < blind * blind || isnan(added_pt.x) || isnan(added_pt.y) || isnan(added_pt.z))
+              continue;
+
+          if (i % real_point_filter_num == 0)
+          {
+              pl_surf.points.push_back(added_pt);
+          }
+      }
+  }
+}
+
 
 void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &types)
 {
