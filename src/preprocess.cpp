@@ -486,7 +486,7 @@ void Preprocess::marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
           added_pt.y = pl_orig.points[i].y;
           added_pt.z = pl_orig.points[i].z;
           added_pt.intensity = 0;
-          added_pt.curvature = i*1e-9; //ms
+          added_pt.curvature = 0; //ms
 
           double dist = added_pt.x * added_pt.x + added_pt.y * added_pt.y + added_pt.z * added_pt.z;
           if ( dist < blind * blind || isnan(added_pt.x) || isnan(added_pt.y) || isnan(added_pt.z))
@@ -495,6 +495,7 @@ void Preprocess::marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
           if (i % real_point_filter_num == 0)
           {
               pl_surf.points.push_back(added_pt);
+              pl_full.points.push_back(added_pt);
           }
       }
   }
