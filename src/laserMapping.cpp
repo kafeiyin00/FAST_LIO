@@ -974,6 +974,7 @@ int main(int argc, char** argv)
                 q_Grav_w = Eigen::Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1));
                 q_Grav_w.normalize();
                 std::cout<<"q_Grav_w: " << q_Grav_w.coeffs()<<"\n";
+                ROS_WARN("gravVec: %f, %f, %f", state_point.grav[0],state_point.grav[1],state_point.grav[2]);
                 b_q_Grav_w_caclulated = true;
             }
             
