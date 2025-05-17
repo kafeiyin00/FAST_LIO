@@ -18,6 +18,7 @@
 #include <pcl/common/transforms.h>
 
 std::string lidar_topic,odometry_topic,dataFolder;
+int frame_size;
 
 std::queue<nav_msgs::Odometry::ConstPtr> odom_buf;
 std::queue<sensor_msgs::PointCloud2::ConstPtr> pcl_buf;
@@ -122,7 +123,7 @@ void process()
             pcl_buf.pop();
 
             // next image
-            if(currentOdoMsg.size() >= 50)
+            if(currentOdoMsg.size() >= frame_size)
             {
                 // save process
                 transformAndOutput(currentOdoMsg,currentPclMsg);
@@ -143,6 +144,7 @@ int main(int argc, char** argv)
     nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered_body");
     nh.param<std::string>("odometry_msg_name",odometry_topic, "/Odometry"); 
     nh.param<std::string>("dataFolder",dataFolder, "/home/iot/workspace/data/frames");
+    nh.param<int>("frame_number",frame_size, 50);
 
     if(!boost::filesystem::exists(dataFolder))
     {

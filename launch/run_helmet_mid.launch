@@ -21,6 +21,7 @@
     <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
     <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
+    <param name="frame_number"  type="int"   value="100"/>
     <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
 
 	<group if="$(arg rviz)">
