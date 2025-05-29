@@ -80,7 +80,7 @@ float DET_RANGE = 300.0f;
 const float MOV_THRESHOLD = 1.5f;
 double time_diff_lidar_to_imu = 0.0;
 
-mutex mtx_buffer;
+mutex mtx_buffer,mtx_buffer_imu_prop;
 condition_variable sig_buffer;
 
 string root_dir = ROOT_DIR;
@@ -143,6 +143,144 @@ geometry_msgs::PoseStamped msg_body_pose;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
+
+Matrix4d G_T_I0;
+V3D unbiased_gyr;
+
+//IMU propagation Parameters
+StatesGroup imu_propagate, latest_ekf_state;
+bool new_imu{false}, state_update_flg{false}, imu_prop_enable{true}, ekf_finish_once{false};
+deque<sensor_msgs::Imu> prop_imu_buffer;
+sensor_msgs::Imu newest_imu;
+double latest_ekf_time;
+nav_msgs::Odometry imu_prop_odom;
+ros::Publisher pubImuPropOdom;
+string imu_prop_topic;
+
+void ConvertTwistToGravFrame(V3D &L0_vel_L) {
+    M3D omg_hat;
+    omg_hat << SKEW_SYM_MATRX(unbiased_gyr);
+    L0_vel_L = G_T_I0.block<3,3>(0,0) * L0_vel_L;
+}
+
+void ConvertPoseToGravFrame(V3D &pos, Quaterniond &q) {
+    M3D rot = q.toRotationMatrix();
+    Matrix4d I0_T_I = Matrix4d::Identity();
+    I0_T_I.block<3, 3>(0, 0) = rot;
+    I0_T_I.col(3).head(3) = pos;
+    Matrix4d T_out = G_T_I0 * I0_T_I;
+    pos = T_out.col(3).head(3);
+    rot = T_out.block<3, 3>(0, 0);
+    q = Quaterniond(rot);
+}
+
+
+void prop_imu_once(StatesGroup & imu_prop_state,
+                   const double dt,
+                   V3D acc_avr,
+                   V3D angvel_avr) {
+    double mean_acc_norm = p_imu->IMU_mean_acc_norm;
+    acc_avr = acc_avr * G_m_s2 / mean_acc_norm - imu_prop_state.bias_a;
+    angvel_avr -= imu_prop_state.bias_g;
+    unbiased_gyr = angvel_avr;
+    M3D Exp_f = Exp(angvel_avr, dt);
+    /* propogation of IMU attitude */
+    imu_prop_state.rot_end = imu_prop_state.rot_end * Exp_f;
+
+    /* Specific acceleration (global frame) of IMU */
+    V3D acc_imu = imu_prop_state.rot_end * acc_avr +
+                  V3D(imu_prop_state.gravity[0], imu_prop_state.gravity[1], imu_prop_state.gravity[2]);
+
+    /* propogation of IMU */
+    imu_prop_state.pos_end = imu_prop_state.pos_end + imu_prop_state.vel_end * dt + 0.5 * acc_imu * dt * dt;
+
+    /* velocity of IMU */
+    imu_prop_state.vel_end = imu_prop_state.vel_end + acc_imu * dt;
+}
+
+void imu_prop_callback(const ros::TimerEvent &e) {
+    if (p_imu->imu_need_init_ || !new_imu || !ekf_finish_once) {
+        return;
+    }
+    mtx_buffer_imu_prop.lock();
+    new_imu = false; //控制propagate频率和IMU频率一致
+    if (imu_prop_enable && !prop_imu_buffer.empty()) {
+        static double last_t_from_lidar_end_time = 0;
+        if (state_update_flg) {
+            imu_propagate = latest_ekf_state;
+            // drop all useless imu pkg
+            while ((!prop_imu_buffer.empty() && prop_imu_buffer.front().header.stamp.toSec() < latest_ekf_time)) {
+                prop_imu_buffer.pop_front();
+            }
+            last_t_from_lidar_end_time = 0;
+            for (int i = 0; i < prop_imu_buffer.size(); i++) {
+                double t_from_lidar_end_time = prop_imu_buffer[i].header.stamp.toSec() - latest_ekf_time;
+                double dt = t_from_lidar_end_time - last_t_from_lidar_end_time;
+                //cout << "prop dt" << dt << ", " << t_from_lidar_end_time << ", " << last_t_from_lidar_end_time << endl;
+                V3D acc_imu(prop_imu_buffer[i].linear_acceleration.x,
+                            prop_imu_buffer[i].linear_acceleration.y,
+                            prop_imu_buffer[i].linear_acceleration.z);
+                V3D omg_imu(prop_imu_buffer[i].angular_velocity.x,
+                            prop_imu_buffer[i].angular_velocity.y,
+                            prop_imu_buffer[i].angular_velocity.z);
+                prop_imu_once(imu_propagate, dt, acc_imu, omg_imu);
+                last_t_from_lidar_end_time = t_from_lidar_end_time;
+            }
+            state_update_flg = false;
+        }
+        else
+        {
+            V3D acc_imu(newest_imu.linear_acceleration.x,
+                        newest_imu.linear_acceleration.y,
+                        newest_imu.linear_acceleration.z);
+            V3D omg_imu(newest_imu.angular_velocity.x,
+                        newest_imu.angular_velocity.y,
+                        newest_imu.angular_velocity.z);
+            double t_from_lidar_end_time = newest_imu.header.stamp.toSec() - latest_ekf_time;
+            double dt = t_from_lidar_end_time - last_t_from_lidar_end_time;
+            prop_imu_once(imu_propagate, dt, acc_imu, omg_imu);
+            last_t_from_lidar_end_time = t_from_lidar_end_time;
+        }
+
+        V3D posi, vel_i;
+        Eigen::Quaterniond q;
+        posi = imu_propagate.pos_end;
+        vel_i = imu_propagate.vel_end;
+        q = Eigen::Quaterniond(imu_propagate.rot_end);
+        ConvertPoseToGravFrame(posi, q);
+        ConvertTwistToGravFrame(vel_i);
+        imu_prop_odom.header.frame_id = "world";
+        imu_prop_odom.header.stamp = newest_imu.header.stamp;
+        imu_prop_odom.pose.pose.position.x = posi.x();
+        imu_prop_odom.pose.pose.position.y = posi.y();
+        imu_prop_odom.pose.pose.position.z = posi.z();
+        imu_prop_odom.pose.pose.orientation.w = q.w();
+        imu_prop_odom.pose.pose.orientation.x = q.x();
+        imu_prop_odom.pose.pose.orientation.y = q.y();
+        imu_prop_odom.pose.pose.orientation.z = q.z();
+        imu_prop_odom.twist.twist.linear.x = vel_i.x();
+        imu_prop_odom.twist.twist.linear.y = vel_i.y();
+        imu_prop_odom.twist.twist.linear.z = vel_i.z();
+        pubImuPropOdom.publish(imu_prop_odom);
+
+        // static tf::TransformBroadcaster br1;
+        // tf::Transform transform;
+        // tf::Quaternion q1;
+        // transform.setOrigin(tf::Vector3(imu_prop_odom.pose.pose.position.x, \
+        //                         imu_prop_odom.pose.pose.position.y, \
+        //                         imu_prop_odom.pose.pose.position.z));
+        // q1.setW(imu_prop_odom.pose.pose.orientation.w);
+        // q1.setX(imu_prop_odom.pose.pose.orientation.x);
+        // q1.setY(imu_prop_odom.pose.pose.orientation.y);
+        // q1.setZ(imu_prop_odom.pose.pose.orientation.z);
+        // transform.setRotation(q1);
+        // br1.sendTransform(
+        //         tf::StampedTransform(transform, imu_prop_odom.header.stamp, topic_name_prefix + "world",
+        //                              "quad" + SetString(drone_id) + "_imu_propagation"));
+    }
+    mtx_buffer_imu_prop.unlock();
+}
+
 
 void SigHandle(int sig)
 {
@@ -367,6 +505,16 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
 
     imu_buffer.push_back(msg);
     mtx_buffer.unlock();
+
+    //IMU propagation
+    mtx_buffer_imu_prop.lock();
+    if (imu_prop_enable && !p_imu->imu_need_init_) {
+        prop_imu_buffer.push_back(*msg);
+    }
+    newest_imu = *msg;
+    new_imu = true;
+    mtx_buffer_imu_prop.unlock();
+
     sig_buffer.notify_all();
 }
 
@@ -871,6 +1019,9 @@ int main(int argc, char** argv)
         cout<<"pcd_root_path: "<< pcd_root_path<<"\n";
     }
 
+    pubImuPropOdom = nh.advertise<nav_msgs::Odometry> ("/lidar_slam/imu_propagate", 1000);
+    ros::Timer imu_prop_timer = nh.createTimer(ros::Duration(0.004), imu_prop_callback);
+
     
     
     path.header.stamp    = ros::Time::now();
@@ -971,8 +1122,15 @@ int main(int argc, char** argv)
             if(!b_q_Grav_w_caclulated)
             {
                 Eigen::Vector3d gravVec(state_point.grav[0],state_point.grav[1],state_point.grav[2]);
-                q_Grav_w = Eigen::Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1));
-                q_Grav_w.normalize();
+                
+
+                G_T_I0.setIdentity();
+                V3D euler_ = RotMtoEuler(Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1)).toRotationMatrix());
+                euler_.z() = 0.0;
+                G_T_I0.block<3,3>(0,0) = EulerToRotM(euler_);
+
+                q_Grav_w = G_T_I0.block<3,3>(0,0);
+
                 std::cout<<"q_Grav_w: " << q_Grav_w.coeffs()<<"\n";
                 ROS_WARN("gravVec: %f, %f, %f", state_point.grav[0],state_point.grav[1],state_point.grav[2]);
                 b_q_Grav_w_caclulated = true;
@@ -1057,6 +1215,17 @@ int main(int argc, char** argv)
             geoQuat.w = state_point.rot.coeffs()[3];
 
             double t_update_end = omp_get_wtime();
+
+            //Update lastest_ekf_state // jianping
+            ekf_finish_once = true;
+            latest_ekf_state.pos_end = state_point.pos;
+            latest_ekf_state.rot_end = state_point.rot;
+            latest_ekf_state.vel_end = state_point.vel;
+            latest_ekf_state.bias_g = state_point.bg;
+            latest_ekf_state.bias_a = state_point.ba;
+            latest_ekf_state.gravity = state_point.grav;
+            latest_ekf_time = lidar_end_time;
+            state_update_flg = true;
 
             /******* Publish odometry *******/
             publish_odometry(pubOdomAftMapped);
