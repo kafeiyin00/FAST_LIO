@@ -7,7 +7,7 @@
 #include <std_msgs/Int32.h> // Add this include
 
 Eigen::Vector3d p_lidar_body, p_enu;
-Eigen::Quaterniond q_w_lidar,q_rotorframe_lidar,q_rotor_rotorframe;
+Eigen::Quaterniond q_w_lidar,q_rotorframe_lidar,q_rotor_rotorframe, q_mav_rotor;
 Eigen::Quaterniond q_mav;
 
 double rotor_encoder_value = 0; // Store the latest encoder value
@@ -25,9 +25,10 @@ void vins_callback(const nav_msgs::Odometry::ConstPtr &msg)
 
     q_w_lidar = Eigen::Quaterniond(msg->pose.pose.orientation.w, msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
     
-    q_rotor_rotorframe = Eigen::AngleAxisd(rotor_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
+    q_rotor_rotorframe = Eigen::AngleAxisd(45 *M_PI/180.0, Eigen::Vector3d::UnitZ())* Eigen::AngleAxisd(rotor_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
     q_rotorframe_lidar = Eigen::AngleAxisd(-60 *M_PI/180.0, Eigen::Vector3d::UnitY());
-    q_mav = q_w_lidar * q_rotorframe_lidar.inverse() * q_rotor_rotorframe.inverse();
+    q_mav_rotor = Eigen::AngleAxisd(90 *M_PI/180.0, Eigen::Vector3d::UnitY());
+    q_mav = q_w_lidar * q_rotorframe_lidar.inverse() * q_rotor_rotorframe.inverse() *q_mav_rotor.inverse();
 }
 
 
@@ -52,7 +53,7 @@ int main(int argc, char **argv)
  
  
     // the setpoint publishing rate MUST be faster than 2Hz
-    ros::Rate rate(200.0);
+    ros::Rate rate(20.0);
  
     ros::Time last_request = ros::Time::now();
     while(ros::ok()){

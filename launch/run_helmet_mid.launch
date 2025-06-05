@@ -21,14 +21,14 @@
     <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
     <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
-    <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
+    <!--<node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/> -->
 
 	<group if="$(arg rviz)">
 	<node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio)/rviz_cfg/helmet_livox.rviz" />
 	</group>
 
-    <node required="$(arg autorun)" pkg="rosbag" type="play" name="rosbag_player"
+    <!-- <node required="$(arg autorun)" pkg="rosbag" type="play" name="rosbag_player"
           args="--clock $(arg bag_file) -r 2.0 -s 0"
-          launch-prefix="bash -c 'sleep 1; $0 $@' "/>
+          launch-prefix="bash -c 'sleep 1; $0 $@' "/> -->
 
 </launch>
