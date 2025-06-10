@@ -4,9 +4,10 @@
 
 	<arg name="rviz" default="true" />
 
-	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
+	<!--rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" /-->
+	<rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" />
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/media/iot/JianpingData/rotation_lidar/2024-10-01-11-29-52.bag"/> 
+	<arg name="bag_file"  default="/home/workspace/data/bags/old_first_2025-05-26-09-21-06.bag"/> 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
 	<param name="point_filter_num" type="int" value="3"/>
@@ -21,7 +22,7 @@
     <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
     <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
-    <param name="frame_number"  type="int"   value="100"/>
+    <param name="frame_number"  type="int"   value="50"/>
     <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
 
 	<group if="$(arg rviz)">

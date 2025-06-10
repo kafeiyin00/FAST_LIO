@@ -1,6 +1,6 @@
 common:
-    lid_topic:  "/first/livox_points"
-    imu_topic:  "/first/imu/data"
+    lid_topic:  "/quad0_pcl_render_node/sensor_cloud"
+    imu_topic:  "/quad_0/imu"
     time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
     time_offset_lidar_to_imu: 0.0 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
                                   # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
@@ -30,6 +30,7 @@ publish:
     scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
 
 pcd_save:
-    pcd_save_en: false
+    pcd_save_en: true
+    pcd_root_path: "/home/workspace/data/pcds"
     interval: -1                 # how many LiDAR frames saved in each pcd file; 
                                  # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
