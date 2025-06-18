@@ -60,6 +60,7 @@
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
 
+
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
 #define MAXN                (720000)
@@ -72,6 +73,7 @@ double match_time = 0, solve_time = 0, solve_const_H_time = 0;
 int    kdtree_size_st = 0, kdtree_size_end = 0, add_point_size = 0, kdtree_delete_counter = 0;
 bool   runtime_pos_log = false, pcd_save_en = false, trajectory_save_en = true, time_sync_en = false, extrinsic_est_en = true, path_en = true;
 string pcd_root_path;
+string map_dir_path;
 FILE* file_trajectory;
 /**************************/
 
@@ -858,21 +860,28 @@ int main(int argc, char** argv)
     nh.param<bool>("mapping/extrinsic_est_en", extrinsic_est_en, true);
     nh.param<bool>("pcd_save/pcd_save_en", pcd_save_en, false);
     nh.param<bool>("pcd_save/trajectory_save_en",trajectory_save_en,false);
-    nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/livox/lidar");
+    nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/home/workspace/data/pcds");
+    nh.param<string>("pcd_save/map_dir_path", map_dir_path, "/home/workspace/data/map.pcd");
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
     nh.param<vector<double>>("mapping/extrinsic_T", extrinT, vector<double>());
     nh.param<vector<double>>("mapping/extrinsic_R", extrinR, vector<double>());
     cout<<"p_pre->lidar_type "<<p_pre->lidar_type<<endl;
+
+    if(pcd_save_en)
+    {
+        cout<<"pcd_root_path: "<< pcd_root_path<<"\n";
+        cout<<"map_dir_path: "<< map_dir_path<<"\n";
+    }
 
     if(trajectory_save_en)
     {
         std::stringstream ss;
         ss << pcd_root_path << "/trajectory_" << ros::Time::now().toNSec()<<".txt";
         file_trajectory = fopen(ss.str().c_str(),"w");
-        cout<<"pcd_root_path: "<< pcd_root_path<<"\n";
+        //cout<<"pcd_root_path: "<< pcd_root_path<<"\n";
+        cout<<"ready to write trajectory to : "<< pcd_root_path<<"\n";
     }
 
-    
     
     path.header.stamp    = ros::Time::now();
     path.header.frame_id ="camera_init";
@@ -1114,10 +1123,11 @@ int main(int argc, char** argv)
     /* 2. pcd save will largely influence the real-time performences **/
     if (pcl_wait_save->size() > 0 && pcd_save_en)
     {
-        string file_name = string("scans.pcd");
-        string all_points_dir(string(string(ROOT_DIR) + "PCD/") + file_name);
+        string all_points_dir = map_dir_path.c_str();
+        //string file_name = string("scans.pcd");
+        //string all_points_dir(string(string(ROOT_DIR) + "PCD/") + file_name);
         pcl::PCDWriter pcd_writer;
-        cout << "current scan saved to /PCD/" << file_name<<endl;
+        cout << "current scan saved to " << all_points_dir <<endl;
         pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
     }
 
