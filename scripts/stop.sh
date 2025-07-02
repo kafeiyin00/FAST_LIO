@@ -1,11 +1,11 @@
 #!/bin/bash
 
 xterm -e "source /opt/ros/noetic/setup.bash; \
-                source /home/root01/ws_motor/devel/setup.bash; \
+                source \$HOME/workspace/ws_slam/devel/setup.bash; \
                 rosnode kill -a " &
 
-xterm -e "cd /home/root01/; \
-                python3 rotor_control_stop.py " &
+xterm -e "cd \$HOME/workspace/ws_slam/src/FAST_LIO/scripts; \
+                 python3 rotor_control_stop.py " &
 
 sleep 2s
                 

@@ -50,6 +50,7 @@ int main(int argc, char **argv)
     ros::Subscriber rotor_encoder_sub = nh.subscribe<std_msgs::Int32>("/rotor_encoder", 10, rotor_encoder_callback);
  
     ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
+    //ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/odometry/in", 10);
  
  
     // the setpoint publishing rate MUST be faster than 2Hz
