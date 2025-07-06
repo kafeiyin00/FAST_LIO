@@ -7,8 +7,8 @@
 	<!--rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" /-->
 	<rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" />
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/home/workspace/data/bags//WHU_TLS_Forest/withds_new_marsim_0.01m/new_first_2025-06-12-10-56-37.bag"/> 
-	
+	<arg name="bag_file"  default="/home/workspace/data/bags/WHU_TLS_Forest/withoutds_new_marsim_0.01m/new_fifth_001_2025-07-06-18-48-58.bag"/> 
+
 	<param name="feature_extract_enable" type="bool" value="0"/>
 	<param name="point_filter_num" type="int" value="3"/>
 	<param name="max_iteration" type="int" value="10" />
@@ -22,7 +22,7 @@
     <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
     <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
     <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
-    <param name="frame_number"  type="int"   value="50"/>
+    <param name="frame_number"  type="int"   value="100"/>
     <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
 
 	<group if="$(arg rviz)">
