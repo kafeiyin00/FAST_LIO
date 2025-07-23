@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(fast_lio)
 
-SET(CMAKE_BUILD_TYPE "Debug")
+SET(CMAKE_BUILD_TYPE "Release")
 
 ADD_COMPILE_OPTIONS(-std=c++14 )
 ADD_COMPILE_OPTIONS(-std=c++14 )
@@ -90,6 +90,7 @@ catkin_package(
 add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
 target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
+add_dependencies(fastlio_mapping fast_lio_generate_messages_cpp)
 
 add_executable(rosbag_edit dataset/rosbag_edit.cpp)
 target_link_libraries(rosbag_edit ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
@@ -98,3 +99,7 @@ target_include_directories(rosbag_edit PRIVATE ${PYTHON_INCLUDE_DIRS})
 add_executable(generate_block dataset/generate_block.cpp)
 target_link_libraries(generate_block ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${OpenCV_LIBS})
 target_include_directories(generate_block PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+add_executable(transformPX4 src/transformPX4.cpp)
+target_link_libraries(transformPX4 ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
+target_include_directories(transformPX4 PRIVATE ${PYTHON_INCLUDE_DIRS})

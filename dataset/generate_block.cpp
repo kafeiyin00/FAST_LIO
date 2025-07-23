@@ -16,8 +16,9 @@
 #include <pcl/conversions.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/common/transforms.h>
+#include <pcl/filters/voxel_grid.h>
 
-std::string lidar_topic,odometry_topic,dataFolder;
+std::string lidar_topic,odometry_topic,dataFolder,pointsFolder;
 int frame_size;
 
 std::queue<nav_msgs::Odometry::ConstPtr> odom_buf;
@@ -38,6 +39,56 @@ void odom_cbk(const nav_msgs::Odometry::ConstPtr &msg)
     // ROS_INFO("receive odometry");
     odom_buf.push(msg);
     bufMutex.unlock();
+}
+
+void savePoints(std::vector<nav_msgs::Odometry> currentOdoMsg,
+ std::vector<sensor_msgs::PointCloud2> currentPclMsg)
+{
+    if(currentPclMsg.size() > 0 && currentOdoMsg.size() > 0 && currentPclMsg.size() == currentOdoMsg.size())
+    {
+        double currentTime = currentOdoMsg[0].header.stamp.toSec();
+        char posFileName[256];
+        char pclFileName[256];
+
+        uint sec = currentTime;
+        uint nsec = (currentTime-sec)*1e9;
+
+        // must use the format of sec_nsec
+        sprintf(pclFileName,"%s/%d_%d.pcd",pointsFolder.c_str(),sec,nsec);
+
+        // save pcl
+        pcl::PointCloud<pcl::PointXYZI>::Ptr all_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+
+        for (size_t i = 0; i < currentPclMsg.size(); i++)
+        {
+            Eigen::Quaterniond q;
+            q.x() = currentOdoMsg[i].pose.pose.orientation.x;
+            q.y() = currentOdoMsg[i].pose.pose.orientation.y;
+            q.z() = currentOdoMsg[i].pose.pose.orientation.z;
+            q.w() = currentOdoMsg[i].pose.pose.orientation.w;
+            q.normalize();
+            Eigen::Vector3d t(currentOdoMsg[i].pose.pose.position.x,currentOdoMsg[i].pose.pose.position.y,currentOdoMsg[i].pose.pose.position.z);
+
+            pcl::PointCloud<pcl::PointXYZI>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::PointCloud<pcl::PointXYZI>::Ptr temp_cloud_trans(new pcl::PointCloud<pcl::PointXYZI>);
+            pcl::fromROSMsg(currentPclMsg[i],*temp_cloud);
+
+            Eigen::Matrix4f transform; transform.setIdentity();
+            // transform.block<3,3>(0,0) = q.toRotationMatrix().cast<float>();
+            // transform.block<3,1>(0,3) = t.cast<float>();
+            
+            pcl::transformPointCloud(*temp_cloud,*temp_cloud_trans,transform);
+            //transform to ref
+            *all_cloud += *temp_cloud_trans;
+        }
+        pcl::VoxelGrid<pcl::PointXYZI> sor;
+        sor.setInputCloud (all_cloud);
+        sor.setLeafSize (0.1f, 0.1f, 0.1f);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
+        sor.filter(*down_sample);
+        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
+    }
+    
 }
 
 
@@ -102,7 +153,12 @@ void transformAndOutput(std::vector<nav_msgs::Odometry> currentOdoMsg,
             //transform to ref
             *all_cloud += *temp_cloud_trans;
         }
-        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*all_cloud);
+        pcl::VoxelGrid<pcl::PointXYZI> sor;
+        sor.setInputCloud (all_cloud);
+        sor.setLeafSize (0.2f, 0.2f, 0.2f);
+        pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
+        sor.filter(*down_sample);
+        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
     }
 }
 
@@ -116,7 +172,6 @@ void process()
 
         if (!odom_buf.empty() && !pcl_buf.empty())
         {  
-
             currentOdoMsg.push_back(*odom_buf.front());
             odom_buf.pop();
             currentPclMsg.push_back(*pcl_buf.front());
@@ -126,7 +181,8 @@ void process()
             if(currentOdoMsg.size() >= frame_size)
             {
                 // save process
-                transformAndOutput(currentOdoMsg,currentPclMsg);
+                // transformAndOutput(currentOdoMsg,currentPclMsg);
+                savePoints(currentOdoMsg,currentPclMsg);
                 currentOdoMsg.clear();
                 currentPclMsg.clear();
             }
@@ -141,14 +197,21 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "generate_block");
     ros::NodeHandle nh;
 
-    nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered_body");
+    nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered");
     nh.param<std::string>("odometry_msg_name",odometry_topic, "/Odometry"); 
     nh.param<std::string>("dataFolder",dataFolder, "/home/iot/workspace/data/frames");
     nh.param<int>("frame_number",frame_size, 50);
+    nh.param<std::string>("pointsFolder",pointsFolder, "/home/iot/workspace/data/points");
+
 
     if(!boost::filesystem::exists(dataFolder))
     {
         boost::filesystem::create_directories(dataFolder);
+    }
+
+    if(!boost::filesystem::exists(pointsFolder))
+    {
+        boost::filesystem::create_directories(pointsFolder);
     }
 
     ros::Subscriber sub_pcl = nh.subscribe(lidar_topic, 200000, pcl_cbk);

@@ -108,4 +108,14 @@ Eigen::Matrix<T, 3, 1> RotMtoEuler(const Eigen::Matrix<T, 3, 3> &rot)
     return ang;
 }
 
+//Euler to Rotation Matrix
+template<typename T>
+Eigen::Matrix<T, 3, 3> EulerToRotM(const Eigen::Matrix<T, 3, 1> &theta)
+{
+    Eigen::Matrix<T, 3, 3> R_x = Eigen::AngleAxis<T>(theta(0),Eigen::Matrix<T, 3, 1>(1,0,0)).toRotationMatrix();
+    Eigen::Matrix<T, 3, 3> R_y = Eigen::AngleAxis<T>(theta(1),Eigen::Matrix<T, 3, 1>(0,1,0)).toRotationMatrix();
+    Eigen::Matrix<T, 3, 3> R_z = Eigen::AngleAxis<T>(theta(2),Eigen::Matrix<T, 3, 1>(0,0,1)).toRotationMatrix();
+    return R_z*R_y*R_x;
+}
+
 #endif
