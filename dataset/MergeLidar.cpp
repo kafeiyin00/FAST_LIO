@@ -26,6 +26,7 @@
 
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/Imu.h>
 #include <livox_ros_driver/CustomMsg.h>
 
 #include <Eigen/Dense>
@@ -76,6 +77,17 @@ struct CloudPacket
     {}
 };
 
+struct ImuPacket
+{
+    double timestamp;
+    sensor_msgs::Imu imu_data;
+    
+    ImuPacket(){};
+    ImuPacket(double timestamp_, const sensor_msgs::Imu &imu_)
+        : timestamp(timestamp_), imu_data(imu_)
+    {}
+};
+
 using namespace std;
 using namespace Eigen;
 
@@ -89,19 +101,27 @@ private:
 
     // Subscribers
     vector<ros::Subscriber> lidar_sub;
+    vector<ros::Subscriber> imu_sub;   // IMU订阅者
 
     mutex lidar_buf_mtx;
     mutex lidar_leftover_buf_mtx;
+    mutex imu_buf_mtx;                 // IMU缓冲区互斥锁
 
     deque<deque<CloudPacket>> lidar_buf;
     deque<deque<CloudPacket>> lidar_leftover_buf;
+    deque<deque<ImuPacket>> imu_buf;   // IMU数据缓冲区
 
     ros::Publisher merged_pc_pub;
     ros::Publisher merged_livox_pub; // 新增：发布Livox CustomMsg格式的合并点云
+    ros::Publisher merged_imu_pub;   // 修改：发布所有转换后的IMU数据（按时间顺序）
 
     // Lidar extrinsics
     deque<Matrix3d> R_B_L;
     deque<Vector3d> t_B_L;
+    
+    // IMU extrinsics (IMU to Body frame transformation)
+    deque<Matrix3d> R_B_I;           // IMU到Body的旋转矩阵
+    deque<Vector3d> t_B_I;           // IMU到Body的平移向量
 
     vector<int> lidar_channels;
     deque<int> lidar_ring_offset;
@@ -144,9 +164,57 @@ public:
 
         Nlidar = lidar_topic.size();
 
+        // Read IMU topics (optional, same number as lidars or empty)
+        vector<string> imu_topic;
+        nh_ptr->getParam("imu_topic", imu_topic);
+        
+        // If no IMU topics specified, create empty list
+        if(imu_topic.empty())
+        {
+            imu_topic.resize(Nlidar);  // 创建与雷达数量相同的空字符串
+            printf("No IMU topics specified. IMU fusion disabled.\n");
+        }
+        else if(imu_topic.size() != Nlidar)
+        {
+            printf(KRED "Warning: IMU topic count (%zu) does not match Lidar count (%d). IMU fusion disabled." RESET "\n", 
+                   imu_topic.size(), Nlidar);
+            imu_topic.clear();
+            imu_topic.resize(Nlidar);  // 填充空字符串
+        }
+
         // Read the extrincs of lidars
         vector<double> lidar_extr = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
         nh_ptr->getParam("lidar_extr", lidar_extr);
+        
+        // Read IMU extrinsics (optional, default to identity transformation)
+        vector<double> imu_extr;
+        nh_ptr->getParam("imu_extr", imu_extr);
+        
+        // If no IMU extrinsics provided, use identity matrices
+        if(imu_extr.empty())
+        {
+            // 为每个IMU创建单位变换矩阵
+            imu_extr.resize(Nlidar * 16);
+            for(int i = 0; i < Nlidar; i++)
+            {
+                // 单位矩阵
+                for(int j = 0; j < 16; j++)
+                    imu_extr[i*16 + j] = (j % 5 == 0) ? 1.0 : 0.0;  // 对角线为1，其余为0
+            }
+            printf("No IMU extrinsics specified. Using identity transformations.\n");
+        }
+        else if(imu_extr.size() != Nlidar * 16)
+        {
+            printf(KRED "Warning: IMU extrinsics size mismatch. Expected %d, got %zu. Using identity transformations." RESET "\n", 
+                   Nlidar * 16, imu_extr.size());
+            imu_extr.clear();
+            imu_extr.resize(Nlidar * 16);
+            for(int i = 0; i < Nlidar; i++)
+            {
+                for(int j = 0; j < 16; j++)
+                    imu_extr[i*16 + j] = (j % 5 == 0) ? 1.0 : 0.0;
+            }
+        }
 
         ROS_ASSERT_MSG( (lidar_extr.size() / 16) == Nlidar,
                         "Lidar extrinsics not complete: %d < %d (= %d*16)\n",
@@ -167,6 +235,14 @@ public:
 
             lidar_buf.push_back(deque<CloudPacket>(0));
             lidar_leftover_buf.push_back(deque<CloudPacket>(0));
+            
+            // 添加IMU相关的初始化
+            imu_buf.push_back(deque<ImuPacket>(0));
+            
+            // 处理IMU外参
+            Matrix4d imu_extrinsicTf = Matrix<double, 4, 4, RowMajor>(&imu_extr[i*16]);
+            R_B_I.push_back(imu_extrinsicTf.block<3, 3>(0, 0));
+            t_B_I.push_back(imu_extrinsicTf.block<3, 1>(0, 3));
 
             // Subscribe to both message types - the system will auto-detect which one is active
             // PointCloud2 subscriber
@@ -182,6 +258,24 @@ public:
                                              boost::bind(&MergeLidar::PcHandlerLivox, this,
                                                          _1, i, (int)extrinsicTf(3, 3),
                                                          extrinsicTf(3, 2))));
+            
+            // IMU subscriber (if topic is specified)
+            if(!imu_topic[i].empty())
+            {
+                imu_sub.push_back(nh_ptr->subscribe<sensor_msgs::Imu>
+                                            (imu_topic[i], 1000,
+                                             boost::bind(&MergeLidar::ImuHandler, this,
+                                                         _1, i)));
+                printf("Subscribed to IMU %d: %s\n", i, imu_topic[i].c_str());
+                cout << "IMU extrinsicTf: " << endl;
+                cout << imu_extrinsicTf << endl;
+            }
+            else
+            {
+                // 添加空的订阅者占位
+                imu_sub.push_back(ros::Subscriber());
+                printf("No IMU topic for lidar %d\n", i);
+            }
             
             printf("Subscribed to lidar %d with dual message type support\n", i);
         }
@@ -200,12 +294,14 @@ public:
 
         merged_pc_pub = nh_ptr->advertise<sensor_msgs::PointCloud2>("/merged_pointcloud", 1000);
         merged_livox_pub = nh_ptr->advertise<livox_ros_driver::CustomMsg>("/merged_livox", 1000);
+        merged_imu_pub = nh_ptr->advertise<sensor_msgs::Imu>("/merged_imu", 1000);
 
         printf("Initialized MergeLidar with %d lidars\n", Nlidar);
         printf("Target sync frequency: %.1f Hz\n", sync_frequency);
         printf("Sync period: %.3f ms\n", sync_period * 1000);
         printf("Publishing merged PointCloud2 to: /merged_pointcloud\n");
         printf("Publishing merged Livox CustomMsg to: /merged_livox\n");
+        printf("Publishing time-sorted IMU data to: /merged_imu\n");
 
         /* #endregion Lidar -----------------------------------------------------------------------------------------*/
 
@@ -428,6 +524,78 @@ public:
         }
     }
 
+    void ImuHandler(const sensor_msgs::Imu::ConstPtr &msg, int idx)
+    {
+        // 性能监控
+        static int imu_handler_count = 0;
+        static double last_imu_handler_time = ros::Time::now().toSec();
+        imu_handler_count++;
+        
+        double timestamp = msg->header.stamp.toSec();
+        
+        // 创建转换到Body坐标系的IMU数据
+        sensor_msgs::Imu transformed_imu = *msg;
+        
+        // 转换线性加速度 (考虑旋转和平移)
+        Vector3d linear_acc_in_imu(msg->linear_acceleration.x, 
+                                   msg->linear_acceleration.y, 
+                                   msg->linear_acceleration.z);
+        Vector3d linear_acc_in_body = R_B_I[idx] * linear_acc_in_imu;
+        
+        transformed_imu.linear_acceleration.x = linear_acc_in_body(0);
+        transformed_imu.linear_acceleration.y = linear_acc_in_body(1);
+        transformed_imu.linear_acceleration.z = linear_acc_in_body(2);
+        
+        // 转换角速度
+        Vector3d angular_vel_in_imu(msg->angular_velocity.x, 
+                                    msg->angular_velocity.y, 
+                                    msg->angular_velocity.z);
+        Vector3d angular_vel_in_body = R_B_I[idx] * angular_vel_in_imu;
+        
+        transformed_imu.angular_velocity.x = angular_vel_in_body(0);
+        transformed_imu.angular_velocity.y = angular_vel_in_body(1);
+        transformed_imu.angular_velocity.z = angular_vel_in_body(2);
+        
+        // 转换四元数姿态 (从IMU坐标系到Body坐标系)
+        Eigen::Quaterniond q_imu(msg->orientation.w, msg->orientation.x, 
+                                  msg->orientation.y, msg->orientation.z);
+        Eigen::Quaterniond q_B_I(R_B_I[idx]);
+        Eigen::Quaterniond q_body = q_B_I * q_imu;
+        
+        transformed_imu.orientation.w = q_body.w();
+        transformed_imu.orientation.x = q_body.x();
+        transformed_imu.orientation.y = q_body.y();
+        transformed_imu.orientation.z = q_body.z();
+        
+        // 更新坐标系
+        transformed_imu.header.frame_id = "body";
+        
+        // 缓冲区管理
+        imu_buf_mtx.lock();
+        imu_buf[idx].push_back(ImuPacket(timestamp, transformed_imu));
+        
+        // 限制缓冲区大小 - IMU频率通常较高，需要更大的缓冲区
+        const size_t MAX_IMU_BUFFER_SIZE = 200;
+        if(imu_buf[idx].size() > MAX_IMU_BUFFER_SIZE)
+        {
+            imu_buf[idx].pop_front();
+            if(imu_handler_count % 500 == 0)
+                ROS_WARN("IMU %d buffer overflow, dropping old data", idx);
+        }
+        imu_buf_mtx.unlock();
+        
+        // 周期性输出处理统计
+        if(imu_handler_count % 1000 == 0)  // IMU频率高，每1000次输出一次
+        {
+            double current_time = ros::Time::now().toSec();
+            double elapsed = current_time - last_imu_handler_time;
+            double freq = 1000.0 / elapsed;
+            printf("IMU %d: Processed %d samples, freq=%.1fHz\n", 
+                   idx, imu_handler_count, freq);
+            last_imu_handler_time = current_time;
+        }
+    }
+
     bool checkLidarChannel(CloudOusterPtr &cloud_inL, int idx)
     {
         std::lock_guard<mutex> lg(channel_mutex);
@@ -523,10 +691,13 @@ public:
                 // 发布Livox CustomMsg格式
                 publishLivoxCloud(merged_livox_pub, *extracted_points.cloud, stamp_time, frame_id);
                 
+                // 提取并按时间顺序发布所有IMU数据
+                PublishTimeSortedImu(extracted_points.startTime, extracted_points.endTime);
+                
                 // 输出融合后的点云信息
                 if(sync_count % 50 == 0) // 每50次输出一次
                 {
-                    printf("Merged cloud: %zu points, time span: %.3fms (Published as both PointCloud2 and Livox CustomMsg)\n", 
+                    printf("Merged cloud: %zu points, time span: %.3fms (Published as PointCloud2, Livox CustomMsg, and time-sorted IMU)\n", 
                            extracted_points.cloud->size(), 
                            (extracted_points.endTime - extracted_points.startTime) * 1000);
                 }
@@ -723,6 +894,75 @@ public:
         }
         
         pub.publish(livox_msg);
+    }
+    
+    void PublishTimeSortedImu(double start_time, double end_time)
+    {
+        // 收集所有在时间范围内的IMU数据
+        vector<ImuPacket> all_imu_data;
+        
+        imu_buf_mtx.lock();
+        
+        // 遍历所有IMU传感器，收集时间范围内的数据
+        for(int i = 0; i < Nlidar; i++)
+        {
+            if(imu_buf[i].empty()) continue;
+            
+            // 在此IMU的缓冲区中查找时间范围内的数据
+            for(auto it = imu_buf[i].begin(); it != imu_buf[i].end(); ++it)
+            {
+                if(it->timestamp >= start_time && it->timestamp <= end_time)
+                {
+                    // 将已经转换到body坐标系的IMU数据添加到集合中
+                    all_imu_data.push_back(*it);
+                }
+                else if(it->timestamp > end_time)
+                {
+                    break; // 时间已经超出范围，可以跳出
+                }
+            }
+            
+            // 清理过期的IMU数据
+            while(!imu_buf[i].empty() && imu_buf[i].front().timestamp < start_time - 0.1) // 保留100ms的历史数据
+            {
+                imu_buf[i].pop_front();
+            }
+        }
+        
+        imu_buf_mtx.unlock();
+        
+        if(all_imu_data.empty())
+        {
+            return; // 没有IMU数据需要发布
+        }
+        
+        // 按时间戳排序所有IMU数据
+        sort(all_imu_data.begin(), all_imu_data.end(), 
+             [](const ImuPacket &a, const ImuPacket &b) {
+                 return a.timestamp < b.timestamp;
+             });
+        
+        // 按时间顺序发布所有IMU数据
+        for(const auto &imu_packet : all_imu_data)
+        {
+            sensor_msgs::Imu imu_msg = imu_packet.imu_data;
+            
+            // 确保时间戳和坐标系正确
+            imu_msg.header.stamp = ros::Time(imu_packet.timestamp);
+            imu_msg.header.frame_id = "body";
+            
+            // 发布IMU数据
+            merged_imu_pub.publish(imu_msg);
+        }
+        
+        // 输出统计信息
+        static int publish_count = 0;
+        publish_count++;
+        if(publish_count % 100 == 0) // 每100次输出一次
+        {
+            printf("Published %zu time-sorted IMU samples in time range [%.3f, %.3f]s\n", 
+                   all_imu_data.size(), start_time, end_time);
+        }
     }
 };
 
