@@ -1077,6 +1077,8 @@ int main(int argc, char** argv)
     ros::Subscriber sub_imu = nh.subscribe(imu_topic, 200000, imu_cbk);
     ros::Publisher pubLaserCloudFull = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered", 100000);
+    ros::Publisher pubLaserCloudFull_copy = nh.advertise<sensor_msgs::PointCloud2>
+            ("/cloud_registered_copy", 100000);
     ros::Publisher pubLaserCloudFull_body = nh.advertise<sensor_msgs::PointCloud2>
             ("/cloud_registered_body", 100000);
     ros::Publisher pubLaserCloudEffect = nh.advertise<sensor_msgs::PointCloud2>
@@ -1237,7 +1239,7 @@ int main(int argc, char** argv)
             
             /******* Publish points *******/
             if (path_en)                         publish_path(pubPath);
-            if (scan_pub_en || pcd_save_en)      publish_frame_world(pubLaserCloudFull);
+            if (scan_pub_en || pcd_save_en)      publish_frame_world(pubLaserCloudFull); publish_frame_world(pubLaserCloudFull_copy);
             if (scan_pub_en && scan_body_pub_en) publish_frame_body(pubLaserCloudFull_body);
             // publish_effect_world(pubLaserCloudEffect);
             // publish_map(pubLaserCloudMap);

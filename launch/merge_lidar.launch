@@ -1,0 +1,38 @@
+<!--
+  多雷达实时融合启动文件
+  支持多个雷达数据的实时同步和融合
+-->
+<launch>
+    <!-- 可选：启动RViz可视化 -->
+    <arg name="rviz" default="false"/>
+    
+    <!-- 多雷达融合节点 -->
+    <node name="merge_lidar" pkg="fast_lio" type="merge_lidar" output="screen">
+        <!-- 雷达话题列表 (系统会自动检测消息类型) -->
+        <rosparam param="lidar_topic">[
+            "/livox/lidar_192_168_10_110",
+            "/livox/lidar_192_168_11_125"
+        ]</rosparam>
+        
+        <!-- 雷达外参矩阵 (4x4变换矩阵，按行存储) -->
+        <!-- 第一个雷达 (主雷达，单位矩阵) -->
+        <!-- 第二个雷达 (Livox前置雷达，向前偏移1米) -->
+        <rosparam param="lidar_extr">[
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+            
+            0.0, 0.0, 1.0, 0.1,
+            0.0, 1.0, 0.0, 0.0,
+            -1.0, 0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]</rosparam>
+        <remap from="/merged_livox" to="/merged_livox"/>
+    </node>
+    
+    <!-- RViz可视化节点 -->
+    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" 
+          args="-d $(find fast_lio)/rviz_cfg/merge_lidar.rviz" output="screen"/>
+
+</launch>

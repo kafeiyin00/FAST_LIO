@@ -6,7 +6,7 @@
 
 	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/media/iot/Jianping/ntuitive/ntuitive_5.bag"/> 
+	<arg name="bag_file"  default="/workspace/data/rotor_uav/B6_0624/2025-06-24-11-03-44.bag"/> 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
 	<param name="point_filter_num" type="int" value="3"/>
