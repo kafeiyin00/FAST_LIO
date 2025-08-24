@@ -6,6 +6,7 @@
 #include <queue>
 #include <deque>
 #include <std_msgs/Int32.h>
+#include <FAST_LIO/StampedInt32.h>
 #include <mutex>
 #include <algorithm>
 
@@ -128,14 +129,14 @@ void vins_callback(const nav_msgs::Odometry::ConstPtr &msg)
 
 
 
-void rotor_encoder_callback(const std_msgs::Int32::ConstPtr& msg)
+void rotor_encoder_callback(const FAST_LIO::StampedInt32::ConstPtr& msg)
 {
     std::lock_guard<std::mutex> lock(encoder_mutex);
     
     rotor_encoder_value = msg->data*360/65535.0;
     
-    // 获取当前时间戳
-    double current_timestamp = ros::Time::now().toSec();
+    // 使用消息header中的时间戳
+    double current_timestamp = msg->header.stamp.toSec();
     
     // 创建新的编码器数据
     EncoderData new_data;
@@ -167,7 +168,7 @@ int main(int argc, char **argv)
     ros::Subscriber slam_sub = nh.subscribe<nav_msgs::Odometry>("/lidar_slam/imu_propagate", 200, vins_callback);
 
     // Subscribe to /rotor_encoder
-    ros::Subscriber rotor_encoder_sub = nh.subscribe<std_msgs::Int32>("/rotor_encoder", 10, rotor_encoder_callback);
+    ros::Subscriber rotor_encoder_sub = nh.subscribe<FAST_LIO::StampedInt32>("/rotor_encoder", 10, rotor_encoder_callback);
  
     ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
     //ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/odometry/in", 10);
