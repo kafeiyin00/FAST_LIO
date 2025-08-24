@@ -19,7 +19,9 @@ xterm -e "source /opt/ros/noetic/setup.bash; \
 
 # 等待3秒
 sleep 5
-xterm -e "cd \$HOME/workspace/ws_slam/src/FAST_LIO/scripts; \
+xterm -e "source /opt/ros/noetic/setup.bash; \
+                source \$HOME/workspace/ws_slam/devel/setup.bash; \
+                cd \$HOME/workspace/ws_slam/src/FAST_LIO/scripts; \
                  python3 rotor_control_start.py " &
 sleep 1
 xterm -e "source /opt/ros/noetic/setup.bash; \

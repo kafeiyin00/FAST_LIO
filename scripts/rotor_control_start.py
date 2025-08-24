@@ -6,7 +6,7 @@ import rospy
 import signal
 import sys
 from std_msgs.msg import Int32  # 保留原有
-from raw_processing.msg import StampedInt32
+from fast_lio.msg import StampedInt32
 
 # 全局变量定义
 ser = None
