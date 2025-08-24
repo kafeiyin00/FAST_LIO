@@ -77,7 +77,7 @@ def main():
         # 只处理发送速度命令
         current_time = time.time()
         if current_time - last_command_time >= 0.3:
-            command = "#speed3600\n"
+            command = "#speed7200\n"
             ser.write(command.encode('utf-8'))
             last_command_time = current_time
         rospy.sleep(0.01)

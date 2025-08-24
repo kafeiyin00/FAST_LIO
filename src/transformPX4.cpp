@@ -118,7 +118,7 @@ void vins_callback(const nav_msgs::Odometry::ConstPtr &msg)
     double msg_timestamp = msg->header.stamp.toSec();
     double interpolated_encoder_value = interpolateEncoderValue(msg_timestamp);
     
-    q_rotor_rotorframe = Eigen::AngleAxisd(45 *M_PI/180.0, Eigen::Vector3d::UnitZ())* Eigen::AngleAxisd(interpolated_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
+    q_rotor_rotorframe = Eigen::AngleAxisd(-65 *M_PI/180.0, Eigen::Vector3d::UnitZ())* Eigen::AngleAxisd(interpolated_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
     q_rotorframe_lidar = Eigen::AngleAxisd(-60 *M_PI/180.0, Eigen::Vector3d::UnitY());
     q_mav_rotor = Eigen::AngleAxisd(90 *M_PI/180.0, Eigen::Vector3d::UnitY());
     q_mav = q_w_lidar * q_rotorframe_lidar.inverse() * q_rotor_rotorframe.inverse() *q_mav_rotor.inverse();
