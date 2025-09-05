@@ -68,13 +68,46 @@ double interpolateEncoderValue(double target_timestamp)
         return encoder_queue.front().encoder_value;
     }
     
-    // 如果目标时间在队列范围之后
+    // 如果目标时间在队列范围之后，进行外推
     if (it_upper == encoder_queue.end()) {
         double time_diff = target_timestamp - encoder_queue.back().timestamp;
         if (time_diff > MAX_INTERPOLATION_TIME) {
-            ROS_WARN("Target timestamp %.6f is too new (%.3fs after last data), using last available value", 
+            ROS_WARN("Target timestamp %.6f is too new (%.3fs after last data), using extrapolated value", 
                      target_timestamp, time_diff);
         }
+        
+        // 使用最后两个数据点进行线性外推
+        if (encoder_queue.size() >= 2) {
+            auto it_last = encoder_queue.end() - 1;
+            auto it_second_last = encoder_queue.end() - 2;
+            
+            double t1 = it_second_last->timestamp;
+            double t2 = it_last->timestamp;
+            double v1 = it_second_last->encoder_value;
+            double v2 = it_last->encoder_value;
+            
+            // 处理角度跳变
+            double angle_diff = v2 - v1;
+            if (angle_diff > 180.0) {
+                v2 -= 360.0;
+            } else if (angle_diff < -180.0) {
+                v2 += 360.0;
+            }
+            
+            // 计算变化率并外推
+            double rate = (v2 - v1) / (t2 - t1);
+            double extrapolated_value = v2 + rate * (target_timestamp - t2);
+            
+            // 确保角度在0-360度范围内
+            while (extrapolated_value < 0.0) extrapolated_value += 360.0;
+            while (extrapolated_value >= 360.0) extrapolated_value -= 360.0;
+            
+            ROS_DEBUG("Extrapolated encoder value: %.3f at timestamp %.6f (rate: %.3f)", 
+                      extrapolated_value, target_timestamp, rate);
+            
+            return extrapolated_value;
+        }
+        
         return encoder_queue.back().encoder_value;
     }
     
