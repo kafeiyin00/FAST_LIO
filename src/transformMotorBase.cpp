@@ -43,6 +43,7 @@ bool encoder_initialized = false;   // 编码器是否已初始化
 // 全局发布器声明
 ros::Publisher base_pointcloud_pub;
 
+
 // 线性插值函数，根据时间戳获取编码器值
 double interpolateEncoderValue(double target_timestamp)
 {
@@ -164,7 +165,7 @@ void pointcloud_callback(const livox_ros_driver::CustomMsg::ConstPtr &msg)
         std::lock_guard<std::mutex> lock(encoder_mutex);
         
         // 扩大搜索范围，特别是在前期编码器数据稀少时
-        double search_margin = 0.5; // 增加搜索边界到0.5秒
+        double search_margin = 0.1; // 增加搜索边界到0.5秒
         double search_start = beg_lidar_time - search_margin;
         double search_end = end_lidar_time + search_margin;
         
@@ -219,7 +220,7 @@ void pointcloud_callback(const livox_ros_driver::CustomMsg::ConstPtr &msg)
         
         // 应用变换：激光雷达 -> 转子坐标系 -> 旋转 -> 基座坐标系
         Eigen::Vector3d pt_rotor = R_rotor_lidar * pt_lidar + Eigen::Vector3d(0.0, 0.0, 0.0);
-        Eigen::Vector3d pt_base = Eigen::AngleAxisd(rot_angular, Eigen::Vector3d::UnitZ()) * pt_rotor;
+        Eigen::Vector3d pt_base = Eigen::AngleAxisd(rot_angular * M_PI /180, Eigen::Vector3d::UnitZ()) * pt_rotor;
         
         // 添加变换后的点到点云
         pcl::PointXYZI transformed_point;
@@ -259,6 +260,11 @@ void rotor_encoder_callback(const fast_lio::StampedInt32::ConstPtr& msg)
     EncoderData new_data;
     new_data.timestamp = current_timestamp;
     new_data.encoder_value = rotor_encoder_value; // 保持度数，在使用时转换为弧度
+
+    if(encoder_queue.size() >0 && fabs(new_data.encoder_value - encoder_queue.back().encoder_value) < 1e-6)
+    {
+        return;
+    }
     
     encoder_queue.push_back(new_data);
     
@@ -296,7 +302,10 @@ int main(int argc, char **argv)
     // 订阅原始点云（来自激光雷达传感器）
     ros::Subscriber pointcloud_sub = nh.subscribe<livox_ros_driver::CustomMsg>("/livox/lidar", 10, pointcloud_callback);
     ROS_INFO("Subscribed to /livox/lidar");
-
+    
+    // // 订阅里程计（如果还需要位姿信息）
+    // ros::Subscriber slam_sub = nh.subscribe<nav_msgs::Odometry>("/livox/imu", 200, vins_callback);
+    // ROS_INFO("Subscribed to /livox/imu");
 
     // 订阅编码器
     ros::Subscriber rotor_encoder_sub = nh.subscribe<fast_lio::StampedInt32>("/rotor_encoder", 10, rotor_encoder_callback);
