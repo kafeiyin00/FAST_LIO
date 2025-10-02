@@ -1,6 +1,10 @@
 #include <ros/ros.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/static_transform_broadcaster.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <geometry_msgs/TransformStamped.h>
 #include <Eigen/Eigen>
 #include <cmath>
 #include <queue>
@@ -24,6 +28,27 @@ Eigen::Quaterniond q_w_lidar,q_rotorframe_lidar,q_rotor_rotorframe, q_mav_rotor;
 Eigen::Quaterniond q_mav;
 ros::Publisher vision_pub;
 
+// TF 参数全局变量
+double rotorframe_to_lidar_rx = 0.0;  // 绕X轴旋转角度 (度)
+double rotorframe_to_lidar_ry = -60.0;    // 绕Y轴旋转角度 (度) 
+double rotorframe_to_lidar_rz = 0.0;    // 绕Z轴旋转角度 (度)
+double rotorframe_to_lidar_tx = 0.0;    // X轴平移
+double rotorframe_to_lidar_ty = 0.0;    // Y轴平移
+double rotorframe_to_lidar_tz = 0.05;    // Z轴平移
+
+double body_to_rotor_rx = 0.0;          // 绕X轴旋转角度 (度)
+double body_to_rotor_ry = 90.0;         // 绕Y轴旋转角度 (度)
+double body_to_rotor_rz = 0.0;          // 绕Z轴旋转角度 (度)
+double body_to_rotor_tx = 0.1;          // X轴平移
+double body_to_rotor_ty = 0.0;          // Y轴平移
+double body_to_rotor_tz = 0.0;          // Z轴平移
+
+double rotor_rotorframe_offset_deg = -65.0;  // rotor到rotorframe的固定偏移角度 (度)
+
+// 静态变换矩阵 (全局变量)
+Eigen::Matrix4d T_rotorframe_lidar = Eigen::Matrix4d::Identity();  // rotorframe -> lidar 静态变换
+Eigen::Matrix4d T_body_rotor = Eigen::Matrix4d::Identity();        // body -> rotor 静态变换
+
 // 编码器数据队列和互斥锁
 std::deque<EncoderData> encoder_queue;
 std::mutex encoder_mutex;
@@ -36,6 +61,41 @@ double fromQuaternion2yaw(Eigen::Quaterniond q)
 {
   double yaw = atan2(2 * (q.x()*q.y() + q.w()*q.z()), q.w()*q.w() + q.x()*q.x() - q.y()*q.y() - q.z()*q.z());
   return yaw;
+}
+
+// 从RPY角度(度)创建四元数
+Eigen::Quaterniond quaternionFromRPY(double roll_deg, double pitch_deg, double yaw_deg)
+{
+    double roll = roll_deg * M_PI / 180.0;
+    double pitch = pitch_deg * M_PI / 180.0;
+    double yaw = yaw_deg * M_PI / 180.0;
+    
+    Eigen::AngleAxisd rollAngle(roll, Eigen::Vector3d::UnitX());
+    Eigen::AngleAxisd pitchAngle(pitch, Eigen::Vector3d::UnitY());
+    Eigen::AngleAxisd yawAngle(yaw, Eigen::Vector3d::UnitZ());
+    
+    return yawAngle * pitchAngle * rollAngle;
+}
+
+// 初始化静态变换矩阵
+void initializeStaticTransforms()
+{
+    // 初始化 rotorframe -> lidar 变换
+    Eigen::Quaterniond q_rotorframe_lidar_param = quaternionFromRPY(rotorframe_to_lidar_rx, rotorframe_to_lidar_ry, rotorframe_to_lidar_rz);
+    T_rotorframe_lidar.block<3,3>(0,0) = q_rotorframe_lidar_param.toRotationMatrix();
+    T_rotorframe_lidar(0,3) = rotorframe_to_lidar_tx;
+    T_rotorframe_lidar(1,3) = rotorframe_to_lidar_ty;
+    T_rotorframe_lidar(2,3) = rotorframe_to_lidar_tz;
+    
+    // 初始化 body -> rotor 变换
+    Eigen::Quaterniond q_body_rotor_param = quaternionFromRPY(body_to_rotor_rx, body_to_rotor_ry, body_to_rotor_rz);
+    T_body_rotor.block<3,3>(0,0) = q_body_rotor_param.toRotationMatrix();
+    T_body_rotor(0,3) = body_to_rotor_tx;
+    T_body_rotor(1,3) = body_to_rotor_ty;
+    T_body_rotor(2,3) = body_to_rotor_tz;
+    
+    ROS_INFO("Static transforms initialized:");
+    ROS_INFO("  T_rotorframe_lidar and T_body_rotor are ready for use");
 }
 
 // 线性插值函数，根据时间戳获取编码器值
@@ -160,17 +220,49 @@ void vins_callback(const nav_msgs::Odometry::ConstPtr &msg)
     double msg_timestamp = msg->header.stamp.toSec();
     double interpolated_encoder_value = interpolateEncoderValue(msg_timestamp);
     
-    q_rotor_rotorframe = Eigen::AngleAxisd(-65 *M_PI/180.0, Eigen::Vector3d::UnitZ())* Eigen::AngleAxisd(interpolated_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
-    q_rotorframe_lidar = Eigen::AngleAxisd(-60 *M_PI/180.0, Eigen::Vector3d::UnitY());
-    q_mav_rotor = Eigen::AngleAxisd(90 *M_PI/180.0, Eigen::Vector3d::UnitY());
-    q_mav = q_w_lidar * q_rotorframe_lidar.inverse() * q_rotor_rotorframe.inverse() *q_mav_rotor.inverse();
+    // 计算完整的变换矩阵而非仅旋转
+    
+    // 1. 创建 rotor -> rotorframe 变换 (包含固定偏移 + 编码器动态旋转)
+    Eigen::Matrix4d T_rotor_rotorframe = Eigen::Matrix4d::Identity();
+    Eigen::Quaterniond q_offset(Eigen::AngleAxisd(rotor_rotorframe_offset_deg * M_PI/180.0, Eigen::Vector3d::UnitZ()));
+    Eigen::Quaterniond q_encoder(Eigen::AngleAxisd(interpolated_encoder_value * M_PI/180.0, Eigen::Vector3d::UnitZ()));
+    Eigen::Quaterniond q_rotor_rotorframe_combined = q_offset * q_encoder;
+    T_rotor_rotorframe.block<3,3>(0,0) = q_rotor_rotorframe_combined.toRotationMatrix();
+    // 无平移，保持 T_rotor_rotorframe(0:2,3) = [0,0,0]
+    
+    // 2. 使用全局静态变换 T_rotorframe_lidar (rotorframe -> lidar)
+    // 3. 使用全局静态变换 T_body_rotor (body -> rotor)
+    
+    // 4. 从里程计获取 world -> lidar 变换
+    Eigen::Matrix4d T_w_lidar = Eigen::Matrix4d::Identity();
+    T_w_lidar.block<3,3>(0,0) = q_w_lidar.toRotationMatrix();
+    T_w_lidar(0,3) = p_lidar_body.x();
+    T_w_lidar(1,3) = p_lidar_body.y();
+    T_w_lidar(2,3) = p_lidar_body.z();
+    
+    // 5. 计算复合变换: T_w_body = T_w_lidar * T_lidar_rotorframe * T_rotorframe_rotor * T_rotor_body
+    // 注意：需要使用逆变换来得到正确的变换链
+    Eigen::Matrix4d T_w_body = T_w_lidar * T_rotorframe_lidar.inverse() * T_rotor_rotorframe.inverse() * T_body_rotor.inverse();
+    
+    // 6. 从变换矩阵中提取旋转和平移
+    Eigen::Matrix3d R_w_body = T_w_body.block<3,3>(0,0);
+    Eigen::Vector3d t_w_body = T_w_body.block<3,1>(0,3);
+    
+    // 将旋转矩阵转换为四元数
+    q_mav = Eigen::Quaterniond(R_w_body);
+    p_enu = t_w_body;
+
+    // q_rotor_rotorframe = Eigen::AngleAxisd(-65 *M_PI/180.0, Eigen::Vector3d::UnitZ())* Eigen::AngleAxisd(interpolated_encoder_value *M_PI/180.0, Eigen::Vector3d::UnitZ());
+    // q_rotorframe_lidar = Eigen::AngleAxisd(-60 *M_PI/180.0, Eigen::Vector3d::UnitY());
+    // q_mav_rotor = Eigen::AngleAxisd(90 *M_PI/180.0, Eigen::Vector3d::UnitY());
+    // q_mav = q_w_lidar * q_rotorframe_lidar.inverse() * q_rotor_rotorframe.inverse() *q_mav_rotor.inverse();
     
     ROS_DEBUG("Using interpolated encoder value %.3f for timestamp %.6f", 
               interpolated_encoder_value, msg_timestamp);
 
 
     geometry_msgs::PoseStamped vision;
-    p_enu = p_lidar_body;
+    // p_enu 已经在上面的变换计算中设置了
 
     vision.pose.position.x = p_enu[0];
     vision.pose.position.y = p_enu[1];
@@ -182,12 +274,78 @@ void vins_callback(const nav_msgs::Odometry::ConstPtr &msg)
     vision.pose.orientation.z = q_mav.z();
     vision.pose.orientation.w = q_mav.w();
 
-    vision.header.stamp = ros::Time::now();
+    vision.header.stamp = msg->header.stamp;
     vision.header.frame_id = "map";
     static uint32_t seq = 0;
     vision.header.seq = seq++;
-
     vision_pub.publish(vision);
+
+    // 发布 TF transforms
+    static tf2_ros::TransformBroadcaster tf_broadcaster;
+    std::vector<geometry_msgs::TransformStamped> transforms;
+    
+    // 1. 发布 map -> body (从 T_w_body)
+    geometry_msgs::TransformStamped map_to_body;
+    map_to_body.header.stamp = vision.header.stamp;
+    map_to_body.header.frame_id = "map";
+    map_to_body.child_frame_id = "body";
+    map_to_body.transform.translation.x = T_w_body(0,3);
+    map_to_body.transform.translation.y = T_w_body(1,3);
+    map_to_body.transform.translation.z = T_w_body(2,3);
+    Eigen::Quaterniond q_map_body(T_w_body.block<3,3>(0,0));
+    map_to_body.transform.rotation.x = q_map_body.x();
+    map_to_body.transform.rotation.y = q_map_body.y();
+    map_to_body.transform.rotation.z = q_map_body.z();
+    map_to_body.transform.rotation.w = q_map_body.w();
+    transforms.push_back(map_to_body);
+    
+    // 2. 发布 body -> rotor (从 T_body_rotor)
+    geometry_msgs::TransformStamped body_to_rotor_tf;
+    body_to_rotor_tf.header.stamp = vision.header.stamp;
+    body_to_rotor_tf.header.frame_id = "body";
+    body_to_rotor_tf.child_frame_id = "rotor";
+    body_to_rotor_tf.transform.translation.x = T_body_rotor(0,3);
+    body_to_rotor_tf.transform.translation.y = T_body_rotor(1,3);
+    body_to_rotor_tf.transform.translation.z = T_body_rotor(2,3);
+    Eigen::Quaterniond q_body_rotor_tf(T_body_rotor.block<3,3>(0,0));
+    body_to_rotor_tf.transform.rotation.x = q_body_rotor_tf.x();
+    body_to_rotor_tf.transform.rotation.y = q_body_rotor_tf.y();
+    body_to_rotor_tf.transform.rotation.z = q_body_rotor_tf.z();
+    body_to_rotor_tf.transform.rotation.w = q_body_rotor_tf.w();
+    transforms.push_back(body_to_rotor_tf);
+    
+    // 3. 发布 rotor -> rotorframe (从 T_rotor_rotorframe)
+    geometry_msgs::TransformStamped rotor_to_rotorframe_tf;
+    rotor_to_rotorframe_tf.header.stamp = vision.header.stamp;
+    rotor_to_rotorframe_tf.header.frame_id = "rotor";
+    rotor_to_rotorframe_tf.child_frame_id = "rotorframe";
+    rotor_to_rotorframe_tf.transform.translation.x = T_rotor_rotorframe(0,3);
+    rotor_to_rotorframe_tf.transform.translation.y = T_rotor_rotorframe(1,3);
+    rotor_to_rotorframe_tf.transform.translation.z = T_rotor_rotorframe(2,3);
+    Eigen::Quaterniond q_rotor_rotorframe_tf(T_rotor_rotorframe.block<3,3>(0,0));
+    rotor_to_rotorframe_tf.transform.rotation.x = q_rotor_rotorframe_tf.x();
+    rotor_to_rotorframe_tf.transform.rotation.y = q_rotor_rotorframe_tf.y();
+    rotor_to_rotorframe_tf.transform.rotation.z = q_rotor_rotorframe_tf.z();
+    rotor_to_rotorframe_tf.transform.rotation.w = q_rotor_rotorframe_tf.w();
+    transforms.push_back(rotor_to_rotorframe_tf);
+    
+    // 4. 发布 rotorframe -> lidar (从 T_rotorframe_lidar)
+    geometry_msgs::TransformStamped rotorframe_to_lidar_tf;
+    rotorframe_to_lidar_tf.header.stamp = vision.header.stamp;
+    rotorframe_to_lidar_tf.header.frame_id = "rotorframe";
+    rotorframe_to_lidar_tf.child_frame_id = "lidar";
+    rotorframe_to_lidar_tf.transform.translation.x = T_rotorframe_lidar(0,3);
+    rotorframe_to_lidar_tf.transform.translation.y = T_rotorframe_lidar(1,3);
+    rotorframe_to_lidar_tf.transform.translation.z = T_rotorframe_lidar(2,3);
+    Eigen::Quaterniond q_rotorframe_lidar_tf(T_rotorframe_lidar.block<3,3>(0,0));
+    rotorframe_to_lidar_tf.transform.rotation.x = q_rotorframe_lidar_tf.x();
+    rotorframe_to_lidar_tf.transform.rotation.y = q_rotorframe_lidar_tf.y();
+    rotorframe_to_lidar_tf.transform.rotation.z = q_rotorframe_lidar_tf.z();
+    rotorframe_to_lidar_tf.transform.rotation.w = q_rotorframe_lidar_tf.w();
+    transforms.push_back(rotorframe_to_lidar_tf);
+    
+    // 发布所有变换
+    tf_broadcaster.sendTransform(transforms);
 
     ROS_INFO("\nposition in enu:\n   x: %.18f\n   y: %.18f\n   z: %.18f\norientation of lidar:\n   x: %.18f\n   y: %.18f\n   z: %.18f\n   w: %.18f", \
         p_enu[0],p_enu[1],p_enu[2],q_mav.x(),q_mav.y(),q_mav.z(),q_mav.w());
@@ -228,6 +386,36 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "lidar_to_mavros");
     ros::NodeHandle nh("~");
+
+    // 读取TF参数
+    nh.param("rotorframe_to_lidar_rx", rotorframe_to_lidar_rx, rotorframe_to_lidar_rx);
+    nh.param("rotorframe_to_lidar_ry", rotorframe_to_lidar_ry, rotorframe_to_lidar_ry);
+    nh.param("rotorframe_to_lidar_rz", rotorframe_to_lidar_rz, rotorframe_to_lidar_rz);
+    nh.param("rotorframe_to_lidar_tx", rotorframe_to_lidar_tx, rotorframe_to_lidar_tx);
+    nh.param("rotorframe_to_lidar_ty", rotorframe_to_lidar_ty, rotorframe_to_lidar_ty);
+    nh.param("rotorframe_to_lidar_tz", rotorframe_to_lidar_tz, rotorframe_to_lidar_tz);
+
+    nh.param("body_to_rotor_rx", body_to_rotor_rx, body_to_rotor_rx);
+    nh.param("body_to_rotor_ry", body_to_rotor_ry, body_to_rotor_ry);
+    nh.param("body_to_rotor_rz", body_to_rotor_rz, body_to_rotor_rz);
+    nh.param("body_to_rotor_tx", body_to_rotor_tx, body_to_rotor_tx);
+    nh.param("body_to_rotor_ty", body_to_rotor_ty, body_to_rotor_ty);
+    nh.param("body_to_rotor_tz", body_to_rotor_tz, body_to_rotor_tz);
+
+    nh.param("rotor_rotorframe_offset_deg", rotor_rotorframe_offset_deg, rotor_rotorframe_offset_deg);
+
+    // 打印读取的参数
+    ROS_INFO("TF Parameters:");
+    ROS_INFO("  rotorframe->lidar: tx=%.2f, ty=%.2f, tz=%.2f, rx=%.2f°, ry=%.2f°, rz=%.2f°",
+             rotorframe_to_lidar_tx, rotorframe_to_lidar_ty, rotorframe_to_lidar_tz,
+             rotorframe_to_lidar_rx, rotorframe_to_lidar_ry, rotorframe_to_lidar_rz);
+    ROS_INFO("  body->rotor: tx=%.2f, ty=%.2f, tz=%.2f, rx=%.2f°, ry=%.2f°, rz=%.2f°",
+             body_to_rotor_tx, body_to_rotor_ty, body_to_rotor_tz,
+             body_to_rotor_rx, body_to_rotor_ry, body_to_rotor_rz);
+    ROS_INFO("  rotor->rotorframe offset: %.2f°", rotor_rotorframe_offset_deg);
+
+    // 初始化静态变换矩阵
+    initializeStaticTransforms();
  
     ros::Subscriber slam_sub = nh.subscribe<nav_msgs::Odometry>("/lidar_slam/imu_propagate", 200, vins_callback);
 
@@ -236,10 +424,10 @@ int main(int argc, char **argv)
  
     vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/vision_pose/pose", 10);
     //ros::Publisher vision_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/odometry/in", 10);
- 
+
+    ROS_INFO("Static transforms will be published dynamically as part of the transform chain");
     ros::Rate rate(20.0);
- 
-    ros::Time last_request = ros::Time::now();
+
     while(ros::ok()){
         ros::spinOnce();
         rate.sleep();
