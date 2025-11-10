@@ -138,12 +138,12 @@ void savePoints(std::vector<nav_msgs::Odometry> currentOdoMsg,
             //transform to ref
             *all_cloud += *temp_cloud_trans;
         }
-        pcl::VoxelGrid<pcl::PointXYZI> sor;
-        sor.setInputCloud (all_cloud);
-        sor.setLeafSize (0.1f, 0.1f, 0.1f);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
-        sor.filter(*down_sample);
-        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
+        // pcl::VoxelGrid<pcl::PointXYZI> sor;
+        // sor.setInputCloud (all_cloud);
+        // sor.setLeafSize (0.05f, 0.05f, 0.05f);
+        // pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
+        // sor.filter(*down_sample);
+        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*all_cloud);
     }
     
 }

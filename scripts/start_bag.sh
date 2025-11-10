@@ -10,9 +10,17 @@ xterm -e "source /opt/ros/noetic/setup.bash; \
                 source \$HOME/workspace/ws_rotor/devel/setup.bash; \
                 roslaunch fast_lio mapping_mid360.launch" &
 sleep 2
+# xterm -e "source /opt/ros/noetic/setup.bash; \
+#                 source \$HOME/workspace/ws_rotor/devel/setup.bash; \
+#                 rosrun fast_lio transformPX4" &
+
 xterm -e "source /opt/ros/noetic/setup.bash; \
                 source \$HOME/workspace/ws_rotor/devel/setup.bash; \
-                rosrun fast_lio transformPX4" &
+                roslaunch motor_tf_utility motor_tf_utility_with_config.launch" &
+
+xterm -e "source /opt/ros/noetic/setup.bash; \
+                source \$HOME/workspace/ws_rotor/devel/setup.bash; \
+                roslaunch uav_bridge uav_net_tx_with_config.launch" &
 
 sleep 2
 xterm -e "source /opt/ros/noetic/setup.bash; \
