@@ -5,7 +5,8 @@ import time
 import rospy
 import signal
 import sys
-from std_msgs.msg import Int32  # Changed to Int32 for encoder counts
+from std_msgs.msg import Int32  # 保留原有
+from fast_lio.msg import StampedInt32
 
 # 全局变量定义
 ser = None
@@ -18,8 +19,11 @@ def serial_read_thread(pub):
             data = ser.readline().decode('utf-8').strip()
             if data.startswith("#ENC:"):
                 enc_value = int(data[5:])
-                pub.publish(Int32(enc_value))
-                rospy.loginfo(f"Published encoder value: {enc_value*360.0/65535}")  # Assuming the value needs to be multiplied by 360
+                msg = StampedInt32()
+                msg.header.stamp = rospy.Time.now()
+                msg.data = enc_value
+                pub.publish(msg)
+                rospy.loginfo(f"Published encoder value: {enc_value*360.0/65535}, time: {msg.header.stamp.to_sec()}")
         except Exception as e:
             rospy.logwarn(f"Error reading serial data: {e}")
 
@@ -44,7 +48,7 @@ def main():
     
     # Initialize ROS node
     rospy.init_node('rotor_control', anonymous=True)
-    pub = rospy.Publisher('/rotor_encoder', Int32, queue_size=10)  # Changed topic name and message type
+    pub = rospy.Publisher('/rotor_encoder', StampedInt32, queue_size=10)  # 改为自定义消息类型
 
     try:
         # 尝试打开串口
@@ -73,7 +77,7 @@ def main():
         # 只处理发送速度命令
         current_time = time.time()
         if current_time - last_command_time >= 0.3:
-            command = "#speed3600\n"
+            command = "#speed7200\n"
             ser.write(command.encode('utf-8'))
             last_command_time = current_time
         rospy.sleep(0.01)

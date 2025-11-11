@@ -1,0 +1,57 @@
+<launch>
+    <!-- Multi-LiDAR and IMU Fusion Node -->
+    <!-- RViz Visualization -->
+
+    <node pkg="fast_lio" type="merge_lidar" name="merge_lidar_node" output="screen">
+        <!-- LiDAR Topics -->
+        <rosparam param="lidar_topic">[
+            "/livox/lidar_192_168_10_110",
+            "/livox/lidar_192_168_11_125"
+        ]</rosparam>
+        
+        <!-- IMU Topics (corresponding to each LiDAR) -->
+        <rosparam param="imu_topic">[
+            "/livox/imu_192_168_10_110",
+            "/livox/imu_192_168_11_125"
+        ]</rosparam>
+        
+        <!-- LiDAR Extrinsics (4x4 transformation matrices in row-major order) -->
+        <!-- First LiDAR: Identity transformation -->
+        <!-- Second LiDAR: 90-degree rotation around Y-axis -->
+        <rosparam param="lidar_extr">
+            [1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, 1, 0,
+             0, 0, 0, 1,
+             0, 0, 1, 0,
+             0, 1, 0, 0,
+            -1, 0, 0, 0,
+             0, 0, 0, 1]
+        </rosparam>
+        
+        <!-- IMU Extrinsics (4x4 transformation matrices in row-major order) -->
+        <!-- IMU通常与对应的LiDAR有相同或轻微的偏移 -->
+        <!-- First IMU: Identity transformation (same as LiDAR) -->
+        <!-- Second IMU: Same rotation as second LiDAR -->
+        <rosparam param="imu_extr">
+            [1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, 1, 0,
+             0, 0, 0, 1,
+             0, 0, 1, 0,
+             0, 1, 0, 0,
+            -1, 0, 0, 0,
+             0, 0, 0, 1]
+        </rosparam>
+        <remap from="/merged_livox" to="/merged_livox"/>
+        <remap from="/merged_imu" to="/merged_imu"/>
+    </node>
+
+    <!-- RViz Visualization -->
+    <!-- <node name="rviz" pkg="rviz" type="rviz" output="screen" 
+          args="-d $(find fast_lio)/rviz_cfg/merge_lidar.rviz"/> -->
+
+    <!-- Monitoring Node -->
+    <!-- <node name="monitor_fusion" pkg="fast_lio" type="test_dual_format.py" output="screen"/> -->
+    
+</launch>

@@ -74,11 +74,13 @@ include_directories(
 add_message_files(
   FILES
   Pose6D.msg
+  StampedInt32.msg
 )
 
 generate_messages(
  DEPENDENCIES
  geometry_msgs
+ std_msgs
 )
 
 catkin_package(
@@ -90,7 +92,7 @@ catkin_package(
 add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
 target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
-add_dependencies(fastlio_mapping fast_lio_generate_messages_cpp)
+add_dependencies(fastlio_mapping fast_lio_generate_messages_cpp livox_ros_driver_generate_messages_cpp)
 
 add_executable(rosbag_edit dataset/rosbag_edit.cpp)
 target_link_libraries(rosbag_edit ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
@@ -103,3 +105,13 @@ target_include_directories(generate_block PRIVATE ${PYTHON_INCLUDE_DIRS})
 add_executable(transformPX4 src/transformPX4.cpp)
 target_link_libraries(transformPX4 ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
 target_include_directories(transformPX4 PRIVATE ${PYTHON_INCLUDE_DIRS})
+add_dependencies(transformPX4 fast_lio_generate_messages_cpp livox_ros_driver_generate_messages_cpp)
+
+add_executable(transformMotorBase src/transformMotorBase.cpp)
+target_link_libraries(transformMotorBase ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
+target_include_directories(transformMotorBase PRIVATE ${PYTHON_INCLUDE_DIRS})
+add_dependencies(transformMotorBase fast_lio_generate_messages_cpp livox_ros_driver_generate_messages_cpp)
+
+add_executable(merge_lidar dataset/MergeLidar.cpp)
+target_link_libraries(merge_lidar ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
+target_include_directories(merge_lidar PRIVATE ${PYTHON_INCLUDE_DIRS})

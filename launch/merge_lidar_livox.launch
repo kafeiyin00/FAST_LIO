@@ -1,0 +1,30 @@
+<!--
+  单个Livox雷达融合测试启动文件 (自动检测消息类型)
+-->
+<launch>
+    <!-- 可选：启动RViz可视化 -->
+    <arg name="rviz" default="true"/>
+    
+    <!-- Livox雷达融合节点 -->
+    <node name="merge_lidar" pkg="fast_lio" type="merge_lidar" output="screen">
+        <!-- 单个Livox雷达话题 (系统会自动检测是PointCloud2还是CustomMsg) -->
+        <rosparam param="lidar_topic">["/livox/lidar"]</rosparam>
+        
+        <!-- 雷达外参矩阵 (单位矩阵) -->
+        <rosparam param="lidar_extr">[
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0
+        ]</rosparam>
+        
+        <!-- 输出融合后的点云话题重映射 -->
+        <remap from="/merged_pointcloud" to="/merged_pointcloud"/>
+        <remap from="/merged_livox" to="/merged_livox"/>
+    </node>
+    
+    <!-- RViz可视化节点 -->
+    <node if="$(arg rviz)" name="rviz" pkg="rviz" type="rviz" 
+          args="-d $(find fast_lio)/rviz_cfg/merge_lidar.rviz" output="screen"/>
+
+</launch>

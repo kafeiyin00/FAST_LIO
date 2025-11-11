@@ -8,6 +8,9 @@
 #include <sensor_msgs/CompressedImage.h>
 #include <boost/filesystem.hpp>
 #include <opencv2/opencv.hpp>
+#include <fstream>
+#include <iomanip>
+#include <csignal>
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -25,6 +28,13 @@ std::queue<nav_msgs::Odometry::ConstPtr> odom_buf;
 std::queue<sensor_msgs::PointCloud2::ConstPtr> pcl_buf;
 std::mutex bufMutex;
 
+// CSV相关变量
+std::ofstream csv_file;
+std::string csv_filename;
+int odom_counter = 0;
+std::mutex csv_mutex;
+double last_timestamp = -1.0;  // 记录上一次保存的时间戳
+
 void pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) 
 {
     bufMutex.lock();
@@ -33,12 +43,60 @@ void pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg)
     bufMutex.unlock();
 }
 
+// 新增：保存里程计数据到CSV文件的函数
+void saveOdometryToCSV(const nav_msgs::Odometry::ConstPtr &msg)
+{
+    csv_mutex.lock();
+    
+    if (csv_file.is_open()) {
+        double timestamp = msg->header.stamp.toSec();
+        
+        // 检查时间间隔，如果小于0.0001秒就跳过
+        if (last_timestamp > 0 && (timestamp - last_timestamp) < 0.0001) {
+            csv_mutex.unlock();
+            return;
+        }
+        
+        double x = msg->pose.pose.position.x;
+        double y = msg->pose.pose.position.y;
+        double z = msg->pose.pose.position.z;
+        double qx = msg->pose.pose.orientation.x;
+        double qy = msg->pose.pose.orientation.y;
+        double qz = msg->pose.pose.orientation.z;
+        double qw = msg->pose.pose.orientation.w;
+        
+        // 写入CSV格式：num t x y z qx qy qz qw
+        csv_file << odom_counter << "," 
+                 << std::fixed << std::setprecision(9) << timestamp << ","
+                 << std::fixed << std::setprecision(6) << x << ","
+                 << std::fixed << std::setprecision(6) << y << ","
+                 << std::fixed << std::setprecision(6) << z << ","
+                 << std::fixed << std::setprecision(6) << qx << ","
+                 << std::fixed << std::setprecision(6) << qy << ","
+                 << std::fixed << std::setprecision(6) << qz << ","
+                 << std::fixed << std::setprecision(6) << qw << std::endl;
+        
+        csv_file.flush(); // 确保数据及时写入
+        last_timestamp = timestamp;  // 更新上一次保存的时间戳
+        odom_counter++;
+        
+        if (odom_counter % 100 == 0) {
+            ROS_INFO("Saved %d odometry messages to CSV", odom_counter);
+        }
+    }
+    
+    csv_mutex.unlock();
+}
+
 void odom_cbk(const nav_msgs::Odometry::ConstPtr &msg) 
 {
     bufMutex.lock();
     // ROS_INFO("receive odometry");
     odom_buf.push(msg);
     bufMutex.unlock();
+    
+    // 同时保存到CSV文件
+    saveOdometryToCSV(msg);
 }
 
 void savePoints(std::vector<nav_msgs::Odometry> currentOdoMsg,
@@ -81,12 +139,12 @@ void savePoints(std::vector<nav_msgs::Odometry> currentOdoMsg,
             //transform to ref
             *all_cloud += *temp_cloud_trans;
         }
-        pcl::VoxelGrid<pcl::PointXYZI> sor;
-        sor.setInputCloud (all_cloud);
-        sor.setLeafSize (0.1f, 0.1f, 0.1f);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
-        sor.filter(*down_sample);
-        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
+        // pcl::VoxelGrid<pcl::PointXYZI> sor;
+        // sor.setInputCloud (all_cloud);
+        // sor.setLeafSize (0.05f, 0.05f, 0.05f);
+        // pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
+        // sor.filter(*down_sample);
+        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*all_cloud);
     }
     
 }
@@ -213,11 +271,50 @@ int main(int argc, char** argv)
     {
         boost::filesystem::create_directories(pointsFolder);
     }
+    
+    // 创建CSV文件
+    time_t rawtime;
+    struct tm * timeinfo;
+    char timestamp_str[80];
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    strftime(timestamp_str, sizeof(timestamp_str), "%Y%m%d_%H%M%S", timeinfo);
+    
+    csv_filename = pointsFolder + "/odometry_" + std::string(timestamp_str) + ".csv";
+    csv_file.open(csv_filename);
+    
+    if (csv_file.is_open()) {
+        // 写入CSV头部
+        csv_file << "num\tt\tx\ty\tz\tqx\tqy\tqz\tqw" << std::endl;
+        ROS_INFO("Created CSV file: %s", csv_filename.c_str());
+    } else {
+        ROS_ERROR("Failed to create CSV file: %s", csv_filename.c_str());
+        return -1;
+    }
 
     ros::Subscriber sub_pcl = nh.subscribe(lidar_topic, 200000, pcl_cbk);
     ros::Subscriber sub_odom = nh.subscribe(odometry_topic, 200000, odom_cbk);
 
     std::thread thread_process{process};
+    
+    // 添加信号处理，确保程序退出时关闭CSV文件
+    signal(SIGINT, [](int sig) {
+        if (csv_file.is_open()) {
+            csv_file.close();
+            ROS_INFO("CSV file closed. Total %d odometry messages saved.", odom_counter);
+        }
+        ros::shutdown();
+        exit(0);
+    });
+    
     ros::spin();
+    
+    // 程序结束时关闭CSV文件
+    if (csv_file.is_open()) {
+        csv_file.close();
+        ROS_INFO("CSV file closed. Total %d odometry messages saved.", odom_counter);
+    }
+
+    return 0;
 
 }
