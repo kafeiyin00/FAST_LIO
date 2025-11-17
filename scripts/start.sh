@@ -2,7 +2,7 @@
 
 # 启动 Livox ROS Driver 节点
 xterm -e "source /opt/ros/noetic/setup.bash; \
-                source \$HOME/workspace/ws_slam/devel/setup.bash; \
+                source \$HOME/workspace/ws_driver/devel/setup.bash; \
                 roslaunch livox_ros_driver2 msg_MID360.launch" &
 
 # 等待2秒，确保前一个节点启动
@@ -13,9 +13,17 @@ xterm -e "source /opt/ros/noetic/setup.bash; \
                 source \$HOME/workspace/ws_slam/devel/setup.bash; \
                 roslaunch fast_lio mapping_mid360.launch" &
 
+# xterm -e "source /opt/ros/noetic/setup.bash; \
+#                 source \$HOME/workspace/ws_slam/devel/setup.bash; \
+#                 rosrun fast_lio transformPX4" &
+
 xterm -e "source /opt/ros/noetic/setup.bash; \
                 source \$HOME/workspace/ws_slam/devel/setup.bash; \
-                rosrun fast_lio transformPX4" &
+                roslaunch motor_tf_utility motor_tf_utility_vertical.launch" &
+
+xterm -e "source /opt/ros/noetic/setup.bash; \
+                source \$HOME/workspace/ws_slam/devel/setup.bash; \
+                roslaunch seeker 1seeker_nodelet.launch" &
 
 # 等待3秒
 sleep 5
