@@ -1,9 +1,18 @@
 #!/bin/bash
-
 # 启动 Livox ROS Driver 节点
 xterm -e "source /opt/ros/noetic/setup.bash; \
                 source \$HOME/workspace/ws_driver/devel/setup.bash; \
                 roslaunch livox_ros_driver2 msg_MID360.launch" &
+                
+xterm -e "source /opt/ros/noetic/setup.bash; \
+                source \$HOME/workspace/ws_slam/devel/setup.bash; \
+                cd \$HOME/workspace/ws_slam/src/FAST_LIO/scripts; \
+                 python3 rotor_control_start_zero.py " &
+                 
+                 
+sleep 5
+
+
 
 # 等待2秒，确保前一个节点启动
 sleep 2
