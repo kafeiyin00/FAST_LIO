@@ -5,7 +5,7 @@ import time
 def main():
     try:
         # 尝试打开串口
-        ser = serial.Serial("/dev/ttyACM_rotor", 9600, timeout=1)
+        ser = serial.Serial("/dev/ttyACM_rotor", 1000000, timeout=1)
         # 注意：通常Linux下串口设备路径为 /dev/ttyACM0，请根据实际情况修改
     except Exception as e:
         print("打开串口失败:", e)

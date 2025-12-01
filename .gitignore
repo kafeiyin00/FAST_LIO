@@ -7,3 +7,13 @@ Log/*.pdf
 .vscode/settings.json
 PCD/*.pcd
 PCD
+scripts/fastlio.log
+.gitignore
+scripts/gst.log
+scripts/livox.log
+scripts/mavros.log
+.gitignore
+scripts/rotor.log
+scripts/seeker.log
+scripts/server.log
+scripts/motor_tf.log

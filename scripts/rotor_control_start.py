@@ -52,7 +52,7 @@ def main():
 
     try:
         # 尝试打开串口
-        ser = Serial("/dev/ttyACM_rotor", 115200, timeout=1)
+        ser = Serial("/dev/ttyACM_rotor", 1000000, timeout=0.01)
         # 注意：通常Linux下串口设备路径为 /dev/ttyACM0，请根据实际情况修改
     except Exception as e:
         print("打开串口失败:", e)
@@ -77,10 +77,10 @@ def main():
         # 只处理发送速度命令
         current_time = time.time()
         if current_time - last_command_time >= 1.:
-            command = "#speed9600\n"
+            command = "#speed3600\n"
             ser.write(command.encode('utf-8'))
             last_command_time = current_time
-        rospy.sleep(0.01)
+        rospy.sleep(1)
 
     stop_thread = True
     read_thread.join(timeout=1.0)
