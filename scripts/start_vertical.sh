@@ -6,6 +6,11 @@ run_nohup() {
 
 run_nohup "source /opt/ros/noetic/setup.bash; source \$HOME/workspace/ws_driver/devel/setup.bash; roslaunch livox_ros_driver2 msg_MID360.launch" livox.log
 
+run_nohup "source /opt/ros/noetic/setup.bash; \
+                source \$HOME/workspace/ws_slam/devel/setup.bash; \
+                cd \$HOME/workspace/ws_slam/src/FAST_LIO/scripts; \
+                python3 rotor_control_start_zero.py " rotor_control_start_zero.log
+
 sleep 2
 
 run_nohup "source /opt/ros/noetic/setup.bash; source \$HOME/workspace/ws_slam/devel/setup.bash; roslaunch fast_lio mapping_mid360.launch" fastlio.log

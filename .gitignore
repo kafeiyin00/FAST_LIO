@@ -17,3 +17,6 @@ scripts/rotor.log
 scripts/seeker.log
 scripts/server.log
 scripts/motor_tf.log
+scripts/rotor_control_start_zero.log
+scripts/rosbag.log
+scripts/roscore.log
