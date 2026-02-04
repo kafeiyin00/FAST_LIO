@@ -4,13 +4,13 @@
 
 	<arg name="rviz" default="true" />
 
-	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
+	<rosparam command="load" file="$(find fast_lio)/config/fmcw_goodimu.yaml" />
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/home/iot/Downloads/2025-10-30-15-07-01.bag"/> 
+	<arg name="bag_file"  default="/media/jianping/Jianping/helmet_fmcw/2026-02-01-17-06-46.bag"/> 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
-	<param name="point_filter_num" type="int" value="3"/>
-	<param name="max_iteration" type="int" value="10" />
+	<param name="point_filter_num" type="int" value="1"/>
+	<param name="max_iteration" type="int" value="20" />
 	<param name="filter_size_surf" type="double" value="0.3" />
 	<param name="filter_size_map" type="double" value="0.3" />
 	<param name="cube_side_length" type="double" value="1000" />

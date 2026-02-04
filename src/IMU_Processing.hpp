@@ -26,7 +26,7 @@
 
 /// *************Preconfiguration
 
-#define MAX_INI_COUNT (10)
+#define MAX_INI_COUNT (20)
 
 const bool time_list(PointType &x, PointType &y) {return (x.curvature < y.curvature);};
 
@@ -189,14 +189,23 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
     cov_acc = cov_acc * (N - 1.0) / N + (cur_acc - mean_acc).cwiseProduct(cur_acc - mean_acc) * (N - 1.0) / (N * N);
     cov_gyr = cov_gyr * (N - 1.0) / N + (cur_gyr - mean_gyr).cwiseProduct(cur_gyr - mean_gyr) * (N - 1.0) / (N * N);
 
-    // cout<<"acc norm: "<<cur_acc.norm()<<" "<<mean_acc.norm()<<endl;
+    // std::cout<<"acc norm: "<<cur_acc.norm()<<" "<<mean_acc.norm()<<endl;
 
     N ++;
   }
-  state_ikfom init_state = kf_state.get_x();
-  init_state.grav = S2(- mean_acc / mean_acc.norm() * G_m_s2);
 
-  IMU_mean_acc_norm=  mean_acc.norm();
+  std::cout<<"mean_acc: "<<mean_acc<<endl;
+  state_ikfom init_state = kf_state.get_x();
+  
+  double acc_norm = mean_acc.norm();
+  if (acc_norm < 1e-6) {
+    ROS_WARN("Mean acceleration norm is too small: %f, using default gravity direction", acc_norm);
+    init_state.grav = S2(V3D(0, 0, -G_m_s2));
+  } else {
+    init_state.grav = S2(- mean_acc / acc_norm * G_m_s2);
+  }
+
+  IMU_mean_acc_norm = acc_norm;
   
   //state_inout.rot = Eye3d; // Exp(mean_acc.cross(V3D(0, 0, -1 / scale_gravity)));
   init_state.bg  = mean_gyr;
@@ -260,7 +269,12 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 
     // fout_imu << setw(10) << head->header.stamp.toSec() - first_lidar_time << " " << angvel_avr.transpose() << " " << acc_avr.transpose() << endl;
 
-    acc_avr     = acc_avr * G_m_s2 / mean_acc.norm(); // - state_inout.ba;
+    double acc_norm = mean_acc.norm();
+    if (acc_norm < 1e-6) {
+      ROS_ERROR("Mean acceleration norm is too small during undistortion: %f", acc_norm);
+      acc_norm = G_m_s2; // Use default gravity value
+    }
+    acc_avr = acc_avr * G_m_s2 / acc_norm; // - state_inout.ba;
 
     if(head->header.stamp.toSec() < last_lidar_end_time_)
     {
@@ -359,7 +373,12 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
     state_ikfom imu_state = kf_state.get_x();
     if (init_iter_num > MAX_INI_COUNT)
     {
-      cov_acc *= pow(G_m_s2 / mean_acc.norm(), 2);
+      double acc_norm = mean_acc.norm();
+      if (acc_norm < 1e-6) {
+        ROS_WARN("Mean acceleration norm too small for covariance scaling: %f", acc_norm);
+        acc_norm = G_m_s2;
+      }
+      cov_acc *= pow(G_m_s2 / acc_norm, 2);
       imu_need_init_ = false;
 
       cov_acc = cov_acc_scale;

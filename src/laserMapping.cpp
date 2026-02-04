@@ -223,6 +223,7 @@ void imu_prop_callback(const ros::TimerEvent &e) {
                 V3D omg_imu(prop_imu_buffer[i].angular_velocity.x,
                             prop_imu_buffer[i].angular_velocity.y,
                             prop_imu_buffer[i].angular_velocity.z);
+                // std::cout<<acc_imu.transpose()<<"\n";
                 prop_imu_once(imu_propagate, dt, acc_imu, omg_imu);
                 last_t_from_lidar_end_time = t_from_lidar_end_time;
             }
@@ -351,6 +352,9 @@ void RGBpointBodyToWorld(PointType const * const pi, PointType * const po)
     po->y = p_global(1);
     po->z = p_global(2);
     po->intensity = pi->intensity;
+    po->normal_x = pi->normal_x;
+    po->normal_y = pi->normal_y;
+    po->normal_z = pi->normal_z;
 }
 
 void RGBpointBodyLidarToIMU(PointType const * const pi, PointType * const po)
@@ -362,6 +366,9 @@ void RGBpointBodyLidarToIMU(PointType const * const pi, PointType * const po)
     po->y = p_body_imu(1);
     po->z = p_body_imu(2);
     po->intensity = pi->intensity;
+    po->normal_x = pi->normal_x;
+    po->normal_y = pi->normal_y;
+    po->normal_z = pi->normal_z;
 }
 
 void points_cache_collect()
@@ -483,6 +490,18 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
     publish_count ++;
     // cout<<"IMU got at: "<<msg_in->header.stamp.toSec()<<endl;
     sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
+
+    // Convert gyro from degrees to radians for FMCW lidar
+    if (p_pre->lidar_type == FMCW)
+    {
+        msg->angular_velocity.x = -msg_in->angular_velocity.y;// / 180.0 * M_PI;
+        msg->angular_velocity.y = -msg_in->angular_velocity.x;// / 180.0 * M_PI;
+        msg->angular_velocity.z = -msg_in->angular_velocity.z;// / 180.0 * M_PI;
+
+        msg->linear_acceleration.x = -msg_in->linear_acceleration.y / G_m_s2;
+        msg->linear_acceleration.y = -msg_in->linear_acceleration.x / G_m_s2;
+        msg->linear_acceleration.z = -msg_in->linear_acceleration.z / G_m_s2;
+    }
 
     msg->header.stamp = ros::Time().fromSec(msg_in->header.stamp.toSec() - time_diff_lidar_to_imu);
     if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)
@@ -1124,8 +1143,11 @@ int main(int argc, char** argv)
             if(!b_q_Grav_w_caclulated)
             {
                 Eigen::Vector3d gravVec(state_point.grav[0],state_point.grav[1],state_point.grav[2]);
-                
-
+                if (p_imu->imu_need_init_)
+                {
+                    ROS_WARN("p_imu->imu_need_init_ true, skip this scan!\n");
+                    continue;
+                }
                 G_T_I0.setIdentity();
                 V3D euler_ = RotMtoEuler(Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1)).toRotationMatrix());
                 euler_.z() = 0.0;
