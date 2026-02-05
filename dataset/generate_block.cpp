@@ -132,8 +132,8 @@ void savePoints(std::vector<nav_msgs::Odometry> currentOdoMsg,
             pcl::fromROSMsg(currentPclMsg[i],*temp_cloud);
 
             Eigen::Matrix4f transform; transform.setIdentity();
-            // transform.block<3,3>(0,0) = q.toRotationMatrix().cast<float>();
-            // transform.block<3,1>(0,3) = t.cast<float>();
+            transform.block<3,3>(0,0) = q.toRotationMatrix().cast<float>();
+            transform.block<3,1>(0,3) = t.cast<float>();
             
             pcl::transformPointCloud(*temp_cloud,*temp_cloud_trans,transform);
             //transform to ref
@@ -211,12 +211,13 @@ void transformAndOutput(std::vector<nav_msgs::Odometry> currentOdoMsg,
             //transform to ref
             *all_cloud += *temp_cloud_trans;
         }
-        pcl::VoxelGrid<pcl::PointXYZI> sor;
-        sor.setInputCloud (all_cloud);
-        sor.setLeafSize (0.2f, 0.2f, 0.2f);
-        pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
-        sor.filter(*down_sample);
-        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
+        //pcl::VoxelGrid<pcl::PointXYZI> sor;
+        //sor.setInputCloud (all_cloud);
+        //sor.setLeafSize (0.2f, 0.2f, 0.2f);
+        //pcl::PointCloud<pcl::PointXYZI>::Ptr down_sample(new pcl::PointCloud<pcl::PointXYZI>);
+        //sor.filter(*down_sample);
+        //pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*down_sample);
+        pcl::io::savePCDFileBinary<pcl::PointXYZI>(pclFileName,*all_cloud);
     }
 }
 
@@ -239,8 +240,8 @@ void process()
             if(currentOdoMsg.size() >= frame_size)
             {
                 // save process
-                // transformAndOutput(currentOdoMsg,currentPclMsg);
-                savePoints(currentOdoMsg,currentPclMsg);
+                transformAndOutput(currentOdoMsg,currentPclMsg);
+                //savePoints(currentOdoMsg,currentPclMsg);
                 currentOdoMsg.clear();
                 currentPclMsg.clear();
             }

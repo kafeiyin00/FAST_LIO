@@ -1137,7 +1137,7 @@ int main(int argc, char** argv)
                 
 
                 G_T_I0.setIdentity();
-                V3D euler_ = RotMtoEuler(Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,-1)).toRotationMatrix());
+                V3D euler_ = RotMtoEuler(Quaterniond::FromTwoVectors(gravVec.normalized(), Eigen::Vector3d(0,0,1)).toRotationMatrix());
                 euler_.z() = 0.0;
                 G_T_I0.block<3,3>(0,0) = EulerToRotM(euler_);
 

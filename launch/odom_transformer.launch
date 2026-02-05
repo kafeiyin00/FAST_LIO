@@ -1,0 +1,11 @@
+<launch>
+    <!-- Load parameters from YAML -->
+    
+    
+    <!-- Run odom transformer node -->
+    <node name="odom_transformer" pkg="fast_lio" type="odom_transformer" output="screen">
+    <rosparam command="load" file="$(find fast_lio)/config/odom_transformer.yaml" />
+        <!-- Override parameters if needed -->
+        <!-- <param name="mode" value="sequential"/> -->
+    </node>
+</launch>

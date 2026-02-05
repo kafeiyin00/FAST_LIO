@@ -115,3 +115,6 @@ add_dependencies(transformMotorBase fast_lio_generate_messages_cpp livox_ros_dri
 add_executable(merge_lidar dataset/MergeLidar.cpp)
 target_link_libraries(merge_lidar ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenMP_CXX_LIBRARIES})
 target_include_directories(merge_lidar PRIVATE ${PYTHON_INCLUDE_DIRS})
+
+add_executable(odom_transformer dataset/odom_transformer.cpp)
+target_link_libraries(odom_transformer ${catkin_LIBRARIES} ${Boost_LIBRARIES})

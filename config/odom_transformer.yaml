@@ -1,0 +1,17 @@
+# Input folder containing odom files
+odom_folder: "/home/workspace/data/bags/map2/map2_2025-12-11-07-55-09.bag_frames"
+
+# Output folder for transform matrices
+output_folder: "/home/workspace/data/bags/map2"
+
+# Mode: "all", "sequential", or "indexed"
+mode: "all"
+
+# Indices for "indexed" mode (only used when mode="indexed")
+# Each pair represents a transformation to compute: T^second_first
+indices:
+  - [0, 1]
+  - [2, 3]
+  - [4, 5]
+  - [0, 5]
+  - [1, 4]
