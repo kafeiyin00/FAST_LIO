@@ -1,8 +1,8 @@
 # Input folder containing odom files
-odom_folder: "/home/workspace/data/bags/map2/map2_2025-12-11-07-55-09.bag_frames"
+odom_folder: "/home/workspace/data/bags/WHU_TLS_Forest/odoms"
 
 # Output folder for transform matrices
-output_folder: "/home/workspace/data/bags/map2"
+output_folder: "/home/workspace/data/bags/WHU_TLS_Forest"
 
 # Mode: "all", "sequential", or "indexed"
 mode: "all"

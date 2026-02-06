@@ -22,6 +22,81 @@ struct TimestampInfo {
         : sec(s), nsec(ns), filename(name), has_timestamp(valid) {}
 };
 
+// 文件排序键结构体
+struct FileSortKey {
+    std::string filepath;
+    uint64_t primary_num;    // 主要数字（秒或索引）
+    uint64_t secondary_num;  // 次要数字（纳秒，如果有）
+    bool is_timestamp;       // 是否为时间戳格式
+    
+    FileSortKey(const std::string& path) : filepath(path), primary_num(0), secondary_num(0), is_timestamp(false) {
+        fs::path p(path);
+        std::string stem = p.stem().string();  // 不带扩展名的文件名
+        
+        // 尝试解析时间戳格式: sec_nsec
+        size_t underscore_pos = stem.find('_');
+        if (underscore_pos != std::string::npos) {
+            std::string sec_str = stem.substr(0, underscore_pos);
+            std::string nsec_str = stem.substr(underscore_pos + 1);
+            
+            // 检查是否都是数字
+            bool sec_is_digit = !sec_str.empty() && 
+                std::all_of(sec_str.begin(), sec_str.end(), ::isdigit);
+            bool nsec_is_digit = !nsec_str.empty() && 
+                std::all_of(nsec_str.begin(), nsec_str.end(), ::isdigit);
+            
+            if (sec_is_digit && nsec_is_digit) {
+                try {
+                    primary_num = std::stoull(sec_str);
+                    secondary_num = std::stoull(nsec_str);
+                    is_timestamp = true;
+                    return;
+                } catch (const std::exception& e) {
+                    // 解析失败，继续尝试简单数字
+                }
+            }
+        }
+        
+        // 尝试解析为简单数字序号
+        if (std::all_of(stem.begin(), stem.end(), ::isdigit) && !stem.empty()) {
+            try {
+                primary_num = std::stoull(stem);
+                secondary_num = 0;
+                is_timestamp = false;
+                return;
+            } catch (const std::exception& e) {
+                // 解析失败，使用字符串比较
+            }
+        }
+        
+        // 如果都不是，使用文件名的哈希值（保证一致性）
+        primary_num = std::hash<std::string>{}(stem);
+        secondary_num = 0;
+        is_timestamp = false;
+    }
+    
+    // 比较运算符
+    bool operator<(const FileSortKey& other) const {
+        // 时间戳格式和数字序号分别排序，时间戳在前
+        if (is_timestamp != other.is_timestamp) {
+            return is_timestamp > other.is_timestamp;  // 时间戳格式优先
+        }
+        
+        // 首先比较主要数字（秒或索引）
+        if (primary_num != other.primary_num) {
+            return primary_num < other.primary_num;
+        }
+        
+        // 如果主要数字相同，比较次要数字（纳秒）
+        if (secondary_num != other.secondary_num) {
+            return secondary_num < other.secondary_num;
+        }
+        
+        // 如果数字都相同，按文件名字符串比较（备用）
+        return filepath < other.filepath;
+    }
+};
+
 // 读取 odom 文件，返回 4x4 变换矩阵
 Eigen::Matrix4d readOdomFile(const std::string& filename) {
     Eigen::Matrix4d transform = Eigen::Matrix4d::Identity();
@@ -96,7 +171,7 @@ Eigen::Matrix4d computeRelativeTransform(const Eigen::Matrix4d& odom_from,
     return odom_to.inverse() * odom_from;
 }
 
-// 获取文件夹中所有 odom 文件，按时间戳排序
+// 获取文件夹中所有 odom 文件，按时间戳或数字序号排序
 std::vector<std::string> getOdomFiles(const std::string& folder_path) {
     std::vector<std::string> odom_files;
     
@@ -111,10 +186,42 @@ std::vector<std::string> getOdomFiles(const std::string& folder_path) {
         }
     }
     
-    // 按文件名排序（文件名包含时间戳）
-    std::sort(odom_files.begin(), odom_files.end());
+    // ✅ 使用智能排序（同时处理时间戳和数字序号）
+    std::vector<FileSortKey> sort_keys;
+    for (const auto& file : odom_files) {
+        sort_keys.emplace_back(file);
+    }
+    
+    std::sort(sort_keys.begin(), sort_keys.end());
+    
+    // 提取排序后的文件路径
+    odom_files.clear();
+    for (const auto& key : sort_keys) {
+        odom_files.push_back(key.filepath);
+    }
     
     ROS_INFO("Found %zu odom files in folder: %s", odom_files.size(), folder_path.c_str());
+    
+    // 打印前几个和后几个文件名用于验证
+    /*
+    if (!odom_files.empty()) {
+        size_t show_count = std::min(size_t(5), odom_files.size());
+        ROS_INFO("First %zu files:", show_count);
+        for (size_t i = 0; i < show_count; i++) {
+            fs::path p(odom_files[i]);
+            ROS_INFO("  [%zu] %s", i, p.filename().string().c_str());
+        }
+        
+        if (odom_files.size() > show_count) {
+            ROS_INFO("Last %zu files:", show_count);
+            for (size_t i = odom_files.size() - show_count; i < odom_files.size(); i++) {
+                fs::path p(odom_files[i]);
+                ROS_INFO("  [%zu] %s", i, p.filename().string().c_str());
+            }
+        }
+    }
+    */
+    
     return odom_files;
 }
 
