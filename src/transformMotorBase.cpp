@@ -12,7 +12,7 @@
 #include <deque>
 #include <std_msgs/Int32.h>
 #include <fast_lio/StampedInt32.h>
-#include <livox_ros_driver/CustomMsg.h>
+#include <livox_ros_driver2/CustomMsg.h>
 #include <mutex>
 #include <algorithm>
 
@@ -148,7 +148,7 @@ double interpolateEncoderValue(double target_timestamp)
     return interpolated_value;
 }
 
-void pointcloud_callback(const livox_ros_driver::CustomMsg::ConstPtr &msg)
+void pointcloud_callback(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
 {
     ROS_INFO("Received Livox pointcloud with %d points", msg->point_num);
     
@@ -300,7 +300,7 @@ int main(int argc, char **argv)
     }
     
     // 订阅原始点云（来自激光雷达传感器）
-    ros::Subscriber pointcloud_sub = nh.subscribe<livox_ros_driver::CustomMsg>("/livox/lidar", 10, pointcloud_callback);
+    ros::Subscriber pointcloud_sub = nh.subscribe<livox_ros_driver2::CustomMsg>("/livox/lidar", 10, pointcloud_callback);
     ROS_INFO("Subscribed to /livox/lidar");
     
     // // 订阅里程计（如果还需要位姿信息）

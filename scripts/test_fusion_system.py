@@ -9,7 +9,7 @@ import rospy
 import time
 import numpy as np
 from sensor_msgs.msg import PointCloud2, Imu
-from livox_ros_driver.msg import CustomMsg
+from livox_ros_driver2.msg import CustomMsg
 from collections import deque
 
 class FusionSystemMonitor:

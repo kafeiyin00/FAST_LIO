@@ -8,7 +8,7 @@
 import rospy
 import time
 from sensor_msgs.msg import PointCloud2
-from livox_ros_driver.msg import CustomMsg
+from livox_ros_driver2.msg import CustomMsg
 
 class MessageTypeDetector:
     def __init__(self):

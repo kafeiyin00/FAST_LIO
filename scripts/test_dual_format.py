@@ -9,7 +9,7 @@ import rospy
 import time
 import numpy as np
 from sensor_msgs.msg import PointCloud2
-from livox_ros_driver.msg import CustomMsg
+from livox_ros_driver2.msg import CustomMsg
 import sensor_msgs.point_cloud2 as pc2
 
 class DualFormatMonitor:

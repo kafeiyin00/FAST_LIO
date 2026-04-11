@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
-#include <livox_ros_driver/CustomMsg.h>
+#include <livox_ros_driver2/CustomMsg.h>
 
 using namespace std;
 
@@ -10,11 +10,63 @@ using namespace std;
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 
-enum LID_TYPE{AVIA = 1, VELO16, OUST64, MARSIM}; //{1, 2, 3}
+enum LID_TYPE{AVIA = 1, VELO16, OUST64, MARSIM, FMCW}; //{1, 2, 3}
 enum TIME_UNIT{SEC = 0, MS = 1, US = 2, NS = 3};
 enum Feature{Nor, Poss_Plane, Real_Plane, Edge_Jump, Edge_Plane, Wire, ZeroPoint};
 enum Surround{Prev, Next};
 enum E_jump{Nr_nor, Nr_zero, Nr_180, Nr_inf, Nr_blind};
+
+// v1.0.1 - latest
+#define GET_PT_TIME(p) p.timestamp
+#define SET_PT_TIME(p, t) p.timestamp = t
+
+#define GET_PT_V(p) p.v
+#define SET_PT_V(p, v) p.v = v
+
+#define GET_PT_V_M(p) p.v_m
+#define SET_PT_V_M(p, v) p.v_m = v
+
+#define GET_PT_R(p) p.reflectivity
+#define SET_PT_R(p, r) p.reflectivity = r
+
+#define GET_PT_I(p) p.intensity
+#define SET_PT_I(p, i) p.intensity = i
+
+#define GET_PT_LASERID(p) p.laserId
+#define SET_PT_LASERID(p, id) p.laserId = id
+
+// Light IC TECH
+namespace lic
+{
+  struct EIGEN_ALIGN16 PointXYZV
+  {
+    float x, y, z, v;  // coordinates & velocity
+    double timestamp;
+    float reflectivity;
+    float v_m; // for visualization
+    std::uint16_t intensity;
+    std::uint16_t laserId;
+    std::uint8_t flag = 1;
+
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  };
+
+  template <typename PointT>
+  using PointVector = std::vector<PointT, Eigen::aligned_allocator<PointT>>;
+} // namespace lic
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(lic::PointXYZV,
+  (float, x, x)
+  (float, y, y)
+  (float, z, z)
+  (float, v, v)
+  (double, timestamp, timestamp)
+  (float, reflectivity, reflectivity)
+  (float, v_m, v_m)
+  (std::uint16_t, intensity, intensity)
+  (std::uint16_t, laserId, laserId)
+  (std::uint8_t, flag, flag)
+)
 
 struct orgtype
 {
@@ -87,7 +139,7 @@ class Preprocess
   Preprocess();
   ~Preprocess();
   
-  void process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
+  void process(const livox_ros_driver2::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void set(bool feat_en, int lid_type, double bld, int pfilt_num);
 
@@ -103,7 +155,8 @@ class Preprocess
     
 
   private:
-  void avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+  void FMCW_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+  void avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg);
   void oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void velodyne_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);

@@ -41,7 +41,7 @@ void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
   point_filter_num = pfilt_num;
 }
 
-void Preprocess::process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
+void Preprocess::process(const livox_ros_driver2::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {  
   avia_handler(msg);
   *pcl_out = pl_surf;
@@ -81,6 +81,10 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   case MARSIM:
     marsim_handler(msg);
     break;
+
+  case FMCW:
+    FMCW_handler(msg);
+    break;
   
   default:
     printf("Error LiDAR Type");
@@ -89,7 +93,50 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   *pcl_out = pl_surf;
 }
 
-void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
+void Preprocess::FMCW_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
+{
+  pl_surf.clear();
+  pl_corn.clear();
+  pl_full.clear();
+  pcl::PointCloud<lic::PointXYZV> pl_lightic;
+  pcl::fromROSMsg(*msg, pl_lightic);
+  int plsize = pl_lightic.size();
+  pl_corn.reserve(plsize);
+  pl_surf.reserve(plsize);
+  
+  {
+    double time_stamp = msg->header.stamp.toSec();
+    // cout << "===================================" << endl;
+    // printf("Pt size = %d, N_SCANS = %d\r\n", plsize, N_SCANS);
+    for (int i = 0; i < pl_lightic.points.size(); i++)
+    {
+      if (i % point_filter_num != 0) continue;
+
+      double range = pl_lightic.points[i].x * pl_lightic.points[i].x + pl_lightic.points[i].y * pl_lightic.points[i].y + pl_lightic.points[i].z * pl_lightic.points[i].z;
+      
+      if (range < (blind * blind)) continue;
+      
+      Eigen::Vector3d pt_vec;
+      PointType added_pt;
+      added_pt.x = pl_lightic.points[i].x;
+      added_pt.y = pl_lightic.points[i].y;
+      added_pt.z = pl_lightic.points[i].z;
+      added_pt.intensity = pl_lightic.points[i].intensity;
+      added_pt.normal_x = pl_lightic.points[i].v;
+      added_pt.normal_y = 0;
+      added_pt.normal_z = 0;
+      added_pt.curvature = (pl_lightic.points[i].timestamp)* float(1000); // curvature unit: ms
+      // std::cout<<"stamp: "<<added_pt.curvature<<"\n";
+
+      pl_full.points.push_back(added_pt);
+      pl_surf.points.push_back(added_pt);
+    }
+  }
+  // pub_func(pl_surf, pub_full, msg->header.stamp);
+  // pub_func(pl_surf, pub_corn, msg->header.stamp);
+}
+
+void Preprocess::avia_handler(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
 {
   pl_surf.clear();
   pl_corn.clear();

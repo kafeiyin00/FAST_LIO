@@ -104,13 +104,13 @@ rosrun fast_lio test_merge_lidar.py
 - ROS Melodic/Noetic
 - PCL 1.8+
 - Eigen3
-- livox_ros_driver
+- livox_ros_driver2
 - OpenMP（可选，用于加速）
 
 ## 故障排除
 
 ### 常见问题
-1. **编译错误**: 确保安装了 livox_ros_driver
+1. **编译错误**: 确保安装了 livox_ros_driver2
 2. **点云为空**: 检查话题名称是否正确
 3. **性能低下**: 调整缓冲区大小和同步频率
 4. **外参错误**: 验证变换矩阵的正确性

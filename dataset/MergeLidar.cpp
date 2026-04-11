@@ -27,7 +27,7 @@
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/Imu.h>
-#include <livox_ros_driver/CustomMsg.h>
+#include <livox_ros_driver2/CustomMsg.h>
 
 #include <Eigen/Dense>
 
@@ -253,7 +253,7 @@ public:
             //                                              extrinsicTf(3, 2))));
             
             // Livox CustomMsg subscriber  
-            lidar_sub.push_back(nh_ptr->subscribe<livox_ros_driver::CustomMsg>
+            lidar_sub.push_back(nh_ptr->subscribe<livox_ros_driver2::CustomMsg>
                                             (lidar_topic[i], 1000,
                                              boost::bind(&MergeLidar::PcHandlerLivox, this,
                                                          _1, i, (int)extrinsicTf(3, 3),
@@ -293,7 +293,7 @@ public:
         //     lidar_ring_offset[i] = lidar_ring_offset[i-1] + lidar_channels[i-1];
 
         merged_pc_pub = nh_ptr->advertise<sensor_msgs::PointCloud2>("/merged_pointcloud", 1000);
-        merged_livox_pub = nh_ptr->advertise<livox_ros_driver::CustomMsg>("/merged_livox", 1000);
+        merged_livox_pub = nh_ptr->advertise<livox_ros_driver2::CustomMsg>("/merged_livox", 1000);
         merged_imu_pub = nh_ptr->advertise<sensor_msgs::Imu>("/merged_imu", 1000);
 
         printf("Initialized MergeLidar with %d lidars\n", Nlidar);
@@ -403,7 +403,7 @@ public:
         }
     }
 
-    void PcHandlerLivox(const livox_ros_driver::CustomMsg::ConstPtr &msg, int idx, int stamp_type, double time_offset)
+    void PcHandlerLivox(const livox_ros_driver2::CustomMsg::ConstPtr &msg, int idx, int stamp_type, double time_offset)
     {
         // 性能监控
         static int handler_count = 0;
@@ -857,7 +857,7 @@ public:
 
     void publishLivoxCloud(ros::Publisher &pub, CloudOuster &cloud, ros::Time thisStamp, std::string thisFrame)
     {
-        livox_ros_driver::CustomMsg livox_msg;
+        livox_ros_driver2::CustomMsg livox_msg;
         
         // 设置消息头
         livox_msg.header.stamp = thisStamp;
@@ -873,7 +873,7 @@ public:
         for(size_t i = 0; i < cloud.size(); i++)
         {
             const PointOuster &ouster_point = cloud.points[i];
-            livox_ros_driver::CustomPoint &livox_point = livox_msg.points[i];
+            livox_ros_driver2::CustomPoint &livox_point = livox_msg.points[i];
             
             // 基本坐标
             livox_point.x = ouster_point.x;

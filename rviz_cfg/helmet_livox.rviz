@@ -46,7 +46,7 @@ Visualization Manager:
       Cell Size: 1000
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: false
+      Enabled: true
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -59,7 +59,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 40
       Reference Frame: <Fixed Frame>
-      Value: false
+      Value: true
     - Alpha: 1
       Class: rviz/Axes
       Enabled: false
@@ -110,7 +110,7 @@ Visualization Manager:
           Class: rviz/PointCloud2
           Color: 255; 255; 255
           Color Transformer: Intensity
-          Decay Time: 30
+          Decay Time: 100
           Enabled: true
           Invert Rainbow: true
           Max Color: 255; 255; 255
@@ -347,7 +347,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 147.13714599609375
+      Distance: 26.401844024658203
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -355,17 +355,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -7.9369611740112305
-        Y: 37.71529769897461
-        Z: 4.154000635026023e-06
+        X: 1.414036750793457
+        Y: -2.970928907394409
+        Z: 8.832608727971092e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.2497977912425995
+      Pitch: -0.3152022957801819
       Target Frame: body
-      Yaw: 1.970991849899292
+      Yaw: 3.0560107231140137
     Saved: ~
 Window Geometry:
   Displays:
