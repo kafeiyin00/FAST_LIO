@@ -39,4 +39,4 @@ xterm -e "source /opt/ros/noetic/setup.bash; \
                  roslaunch mavros px4.launch fcu_url:=/dev/ttyACM_px4:921600 " &
                  
                  
-xterm -e "source /opt/ros/noetic/setup.bash; source \$HOME/workspace/ws_slam/devel/setup.bash; roslaunch uav_bridge uav_server.launch"&
+# xterm -e "source /opt/ros/noetic/setup.bash; source \$HOME/workspace/ws_slam/devel/setup.bash; roslaunch uav_bridge uav_server.launch"&
