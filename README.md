@@ -156,6 +156,77 @@ B. The warning message "Failed to find match for field 'time'." means the timest
 
 C. We recommend to set the **extrinsic_est_en** to false if the extrinsic is give. As for the extrinsic initiallization, please refer to our recent work: [**Robust Real-time LiDAR-inertial Initialization**](https://github.com/hku-mars/LiDAR_IMU_Init).
 
+### 3.0 Reference Map Evaluation Modes
+
+This repository additionally supports three fixed reference-map working modes configured by `ref_map/mode` in [config/mid360.yaml](config/mid360.yaml) / [config/marsim.yaml](config/marsim.yaml)
+
+#### Mode 1: `no_ref`
+
+- Behavior: keep the original FAST-LIO online mapping pipeline.
+- Matching target: incremental online map built from the current run.
+- Main outputs:
+    - `/cloud_registered`: gravity-aligned point cloud in G frame
+    - `/cloud_registered_body`: body-frame point cloud
+    - `/Odometry`: gravity-aligned odometry in G frame
+- Submap generation behavior:
+    - `generate_block` uses `/cloud_registered_body` + `/Odometry`
+    - point clouds are transformed and accumulated internally into each block
+
+#### Mode 2: `ref_pub_grav_truth`
+
+- Behavior: localize against the TLS reference map, but still publish each frame point cloud in the gravity-aligned G frame.
+- Matching target: static TLS reference map transformed back into the internal FAST-LIO matching chain.
+- Main outputs:
+    - `/cloud_registered`: gravity-aligned point cloud in G frame
+    - `/cloud_registered_body`: body-frame point cloud
+    - `/Odometry`: estimated pose in G frame
+    - `/grav_truth_Odometry`: continuously updated G->W truth pose expressed in TLS/W frame
+    - `/ref_map`: reference TLS map for RViz inspection
+- Intended use:
+    - evaluate relative registration on G-frame submaps
+    - use `/grav_truth_Odometry` as the online truth relation from G to W
+- Submap generation behavior:
+    - `generate_block` directly uses `/cloud_registered` + `/grav_truth_Odometry`
+    - each saved block already lies in the G-frame evaluation chain, while pose truth is exported in W
+
+#### Mode 3: `ref_pub_ref_truth`
+
+- Behavior: localize against the TLS reference map and directly publish each frame point cloud in TLS/W frame.
+- Main outputs:
+    - `/ref_truth_cloud_registered`: point cloud directly expressed in TLS/W frame
+    - `/ref_truth_Odometry`: body pose in TLS/W frame
+    - `/ref_map`: reference TLS map for RViz inspection
+- Intended use:
+    - save directly co-registered submaps in the TLS frame
+    - treat identity as the expected relative transform between overlapping saved submaps
+- Submap generation behavior:
+    - `generate_block` directly uses `/ref_truth_cloud_registered` + `/ref_truth_Odometry`
+    - no extra intra-block transform is applied to the incoming cloud
+
+#### Configuration Example
+
+Set the mode in [config/mid360.yaml](config/mid360.yaml):
+
+```yaml
+ref_map:
+        mode: "no_ref"
+```
+
+Available values are only:
+
+```yaml
+ref_map:
+        mode: "no_ref"
+        # or "ref_pub_grav_truth"
+        # or "ref_pub_ref_truth"
+```
+
+Remarks:
+
+- `generate_block` now reads `ref_map/mode` directly and switches its input topics automatically.
+- In the two reference-map modes, online map growth, trajectory file dumping, and old path publishing are disabled intentionally.
+- `ref_map/transform_wg` should provide the initial $T_{WG}$ used to connect the gravity-aligned frame G and the TLS frame W.
+
 ### 3.1 For Avia
 Connect to your PC to Livox Avia LiDAR by following  [Livox-ros-driver installation](https://github.com/Livox-SDK/livox_ros_driver), then
 ```

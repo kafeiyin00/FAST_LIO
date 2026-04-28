@@ -1,14 +1,15 @@
 <launch>
 <!-- Launch file for Livox MID360 LiDAR -->
     <arg name="autorun"     default="true"/>
+	<arg name="enable_generate_block" default="true" />
 
 	<arg name="rviz" default="true" />
 
-	<!--rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" /-->
-	<rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" />
+	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
+	<!--rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" /-->
 	<!--rosparam command="load" file="$(find fast_lio)/config/ouster128.yaml" /-->
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/home/workspace/data/bags/WHU_TLS_Forest/5_2025-12-02-20-03-07.bag"/> 
+	<arg name="bag_file"  default="/home/workspace/data/bags/Maan_Mountain_Forest/Plot1/Line4_2026-03-21-14-35-17.bag"/> 
 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
@@ -18,16 +19,18 @@
 	<param name="filter_size_map" type="double" value="0.2" />
 	<param name="cube_side_length" type="double" value="1000" />
 	<param name="runtime_pos_log_enable" type="bool" value="0" />
-    <node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen" /> 
+	<node pkg="fast_lio" type="fastlio_mapping" name="laserMapping" output="screen" /> 
 
+    <rosparam command="load" file="$(find fast_lio)/config/generate_block.yaml" />
+
+	<!-- generate_block 会直接读取 ref_map.mode 自动切换输入语义，
+		 no_ref 使用 body 点云 + /Odometry，
+		    ref_pub_grav_truth 使用 /cloud_registered + /grav_truth_Odometry，
+		    ref_pub_ref_truth 使用 /ref_truth_cloud_registered + /ref_truth_Odometry -->
     <param name="image_msg_name"  type="string"   value="/camera0/compressed"/>
-    <param name="lidar_msg_name"  type="string"   value="/cloud_registered_body"/>
-    <param name="odometry_msg_name"  type="string"   value="/Odometry"/>
-    <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
-	<param name="pointsFolder"  type="string"   value="$(arg bag_file)_points"/>
-
-    <param name="frame_number"  type="int"   value="80"/>
-    <node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
+    <param name="dataFolder"  type="string"   value="$(arg bag_file)_ref_truth_frames"/>
+	<param name="pointsFolder"  type="string"   value="$(arg bag_file)_ref_truth_points"/>
+	<node if="$(arg enable_generate_block)" pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
     <!--<node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/> -->
 
 

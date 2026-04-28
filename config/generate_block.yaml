@@ -1,0 +1,31 @@
+# 帧数配置
+frame_number: 80
+
+# 是否直接接收已经完成坐标系表达的整帧点云
+# 注意：当前版本中该开关只会在 ref 模式下被强制使用：
+#   no_ref               -> 保留该开关语义：
+#                           false 输入 /cloud_registered_body + /Odometry
+#                           true  输入 /cloud_registered + /Odometry
+#   ref_pub_grav_truth   -> true，输入 /cloud_registered + /grav_truth_TWG
+#   ref_pub_ref_truth    -> true，输入 /ref_truth_cloud_registered + /ref_truth_TWW
+save_registered_data: true
+
+
+# 是否应用全局坐标系转换（仿真数据使用，轨迹起点的相对关系已知）
+# 该配置与 ref_map.mode 独立：它只影响 generate_block 输出的位姿/文件，不改变输入话题选择
+apply_global_shift: false
+
+# 全局坐标系转换矩阵 T^G_L (4x4, 行优先)
+global_shift: [
+    1.0,  0.0, 0.0, 9.29,
+    0.0,  1.0, 0.0, 26.52,
+    0.0,  0.0, 1.0, 4.63,
+    0.0,  0.0, 0.0, 1.0
+]
+
+#        WHU-TLS-Forest五条轨迹起点:
+#        21.20,7.42,2.80
+#        36.00,6.62,3.88
+#        45.40,16.62,4.87
+#        13.50,19.32,5.41
+#        9.29,26.52,4.63

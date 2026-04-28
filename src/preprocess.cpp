@@ -6,41 +6,48 @@
 Preprocess::Preprocess()
   :feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
-  inf_bound = 10;
-  N_SCANS   = 6;
-  SCAN_RATE = 10;
-  group_size = 8;
-  disA = 0.01;
-  disA = 0.1; // B?
-  p2l_ratio = 225;
-  limit_maxmid =6.25;
-  limit_midmin =6.25;
-  limit_maxmin = 3.24;
-  jump_up_limit = 170.0;
-  jump_down_limit = 8.0;
-  cos160 = 160.0;
-  edgea = 2;
-  edgeb = 0.1;
-  smallp_intersect = 172.5;
-  smallp_ratio = 1.2;
-  given_offset_time = false;
+  inf_bound = 10;                 // 有效点集合,大于10m则是盲区
+  N_SCANS   = 6;                  //多线激光雷达的线数
+  SCAN_RATE = 10;                 //扫描频率
+  group_size = 8;                 // 8个点为一组
+  disA = 0.01;                    // 点集合的距离阈值,判断是否为平面
+  disA = 0.1;                     // B? 点集合的距离阈值,判断是否为平面
+  p2l_ratio = 225;                // 点到线的距离阈值，需要大于这个值才能判断组成面
+  limit_maxmid =6.25;             // 中点到左侧的距离变化率范围
+  limit_midmin =6.25;             // 中点到右侧的距离变化率范围
+  limit_maxmin = 3.24;            // 左侧到右侧的距离变化率范围
+  jump_up_limit = 170.0;          //大于170度的角度
+  jump_down_limit = 8.0;          //小于8度的角度
+  cos160 = 160.0;                 //夹角160度的余弦值
+  edgea = 2;                      //点与点距离超过两倍则认为遮挡
+  edgeb = 0.1;                    //点与点距离超过0.1m则认为遮挡
+  smallp_intersect = 172.5;       //小平面相交角度
+  smallp_ratio = 1.2;             //三个点如果角度大于172.5度，且比例小于1.2倍，则认为是平面
+  given_offset_time = false;      //是否提供时间偏移
 
-  jump_up_limit = cos(jump_up_limit/180*M_PI);
-  jump_down_limit = cos(jump_down_limit/180*M_PI);
-  cos160 = cos(cos160/180*M_PI);
-  smallp_intersect = cos(smallp_intersect/180*M_PI);
+  //将角度转换为弧度并计算余弦值
+  jump_up_limit = cos(jump_up_limit/180*M_PI);       //角度大于170度的点跳过，认为在盲区
+  jump_down_limit = cos(jump_down_limit/180*M_PI);   //角度小于8度的点跳过
+  cos160 = cos(cos160/180*M_PI);                     //夹角限制
+  smallp_intersect = cos(smallp_intersect/180*M_PI); //三个点如果角度大于172.5度，且比例小于1.2倍，则认为是平面
 }
 
 Preprocess::~Preprocess() {}
 
 void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
 {
-  feature_enabled = feat_en;
-  lidar_type = lid_type;
-  blind = bld;
-  point_filter_num = pfilt_num;
+  feature_enabled = feat_en;    //是否提取特征点
+  lidar_type = lid_type;        //雷达的种类
+  blind = bld;                  //最小距离阈值，即过滤掉0～blind范围内的点云
+  point_filter_num = pfilt_num; //采样间隔，即每隔point_filter_num个点取1个点
 }
 
+/**
+ * @brief Livox激光雷达点云预处理函数
+ *
+ * @param msg livox激光雷达点云数据，格式为livox_ros_driver::CustomMsg
+ * @param pcl_out 输出处理后的点云数据，格式为pcl::PointCloud<pcl::PointXYZINormal>
+ */
 void Preprocess::process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {  
   avia_handler(msg);
@@ -89,13 +96,19 @@ void Preprocess::process(const sensor_msgs::PointCloud2::ConstPtr &msg, PointClo
   *pcl_out = pl_surf;
 }
 
+/**
+ * @brief 对Livox激光雷达点云数据进行预处理
+ *
+ * @param msg livox激光雷达点云数据，格式为livox_ros_driver::CustomMsg
+ */
 void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
 {
-  pl_surf.clear();
-  pl_corn.clear();
-  pl_full.clear();
-  double t1 = omp_get_wtime();
-  int plsize = msg->point_num;
+  // 清除之前的点云缓存
+  pl_surf.clear();             // 清除之前的平面点云缓存
+  pl_corn.clear();             // 清除之前的角点云缓存
+  pl_full.clear();             // 清除之前的全点云缓存
+  double t1 = omp_get_wtime(); // 后面没用到
+  int plsize = msg->point_num; // 一帧中的点云总个数
   // cout<<"plsie: "<<plsize<<endl;
 
   pl_corn.reserve(plsize);
@@ -105,14 +118,17 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
   for(int i=0; i<N_SCANS; i++)
   {
     pl_buff[i].clear();
-    pl_buff[i].reserve(plsize);
+    pl_buff[i].reserve(plsize); // 每一个scan保存的点云数量
   }
-  uint valid_num = 0;
-  
+  uint valid_num = 0; // 有效的点云数
+
+  // 特征提取（FastLIO2默认不进行特征提取）
   if (feature_enabled)
   {
+    // 分别对每个点云进行处理
     for(uint i=1; i<plsize; i++)
     {
+      // 只取线数在0~N_SCANS内并且回波次序为0或者1的点云
       if((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
         pl_full[i].x = msg->points[i].x;
@@ -132,10 +148,12 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
     }
     static int count = 0;
     static double time = 0.0;
-    count ++;
+    count++;
     double t0 = omp_get_wtime();
+    // 对每个line中的激光雷达分别进行处理
     for(int j=0; j<N_SCANS; j++)
     {
+      // 如果该line中的点云过小，则继续处理下一条line
       if(pl_buff[j].size() <= 5) continue;
       pcl::PointCloud<PointType> &pl = pl_buff[j];
       plsize = pl.size();
@@ -151,8 +169,9 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
         vz = pl[i].z - pl[i + 1].z;
         types[i].dista = sqrt(vx * vx + vy * vy + vz * vz);
       }
+      //因为i最后一个点没有i+1了所以就单独求了一个range，没有distance
       types[plsize].range = sqrt(pl[plsize].x * pl[plsize].x + pl[plsize].y * pl[plsize].y);
-      give_feature(pl, types);
+      give_feature(pl, types); //给特征
       // pl_surf += pl;
     }
     time += omp_get_wtime() - t0;
@@ -160,8 +179,10 @@ void Preprocess::avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg)
   }
   else
   {
+    // 分别对每个点云进行处理
     for(uint i=1; i<plsize; i++)
     {
+      // 只取线数在0~N_SCANS内并且回波次序为0或者1的点云
       if((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
         valid_num ++;
@@ -502,9 +523,15 @@ void Preprocess::marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
 }
 
 
+/**
+ * @brief 对于每条line的点云提取特征
+ *
+ * @param pl  pcl格式的点云 输入进来一条扫描线上的点
+ * @param types  点云的其他属性
+ */
 void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &types)
 {
-  int plsize = pl.size();
+  int plsize = pl.size(); //单条线的点数
   int plsize2;
   if(plsize == 0)
   {
@@ -512,7 +539,7 @@ void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &t
     return;
   }
   uint head = 0;
-
+  //不能在盲区 从这条线非盲区的点开始
   while(types[head].range < blind)
   {
     head++;
@@ -816,25 +843,29 @@ void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &t
   }
 }
 
+// 发布topic指令，该函数暂时没用到
 void Preprocess::pub_func(PointCloudXYZI &pl, const ros::Time &ct)
 {
-  pl.height = 1; pl.width = pl.size();
+  pl.height = 1;
+  pl.width = pl.size();
   sensor_msgs::PointCloud2 output;
   pcl::toROSMsg(pl, output);
   output.header.frame_id = "livox";
   output.header.stamp = ct;
 }
 
+//平面判断
 int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i_cur, uint &i_nex, Eigen::Vector3d &curr_direct)
 {
-  double group_dis = disA*types[i_cur].range + disB;
+  double group_dis = disA*types[i_cur].range + disB; // 0.01*sqrt(x^2+y^2)+0.1 基本上可以近似看成是0.1 100m的时候才到0.2
   group_dis = group_dis * group_dis;
   // i_nex = i_cur;
 
   double two_dis;
-  vector<double> disarr;
+  vector<double> disarr; //前后点距离数组
   disarr.reserve(20);
 
+  //距离小 点与点之间较近 先取够8个点
   for(i_nex=i_cur; i_nex<i_cur+group_size; i_nex++)
   {
     if(types[i_nex].range < blind)
@@ -842,9 +873,10 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
       curr_direct.setZero();
       return 2;
     }
-    disarr.push_back(types[i_nex].dista);
+    disarr.push_back(types[i_nex].dista); //存储当前点与后一个点的距离
   }
-  
+
+  //看看后续的点有没有满足条件的
   for(;;)
   {
     if((i_cur >= pl.size()) || (i_nex >= pl.size())) break;
@@ -854,6 +886,7 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
       curr_direct.setZero();
       return 2;
     }
+    //最后的i_nex点到i_cur点的距离
     vx = pl[i_nex].x - pl[i_cur].x;
     vy = pl[i_nex].y - pl[i_cur].y;
     vz = pl[i_nex].z - pl[i_cur].z;
@@ -862,8 +895,8 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
     {
       break;
     }
-    disarr.push_back(types[i_nex].dista);
-    i_nex++;
+    disarr.push_back(types[i_nex].dista); //存储当前点与后一个点的距离
+    i_nex++;                              // i_nex点加一
   }
 
   double leng_wid = 0;
@@ -871,13 +904,16 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
   for(uint j=i_cur+1; j<i_nex; j++)
   {
     if((j >= pl.size()) || (i_cur >= pl.size())) break;
+    //假设i_cur点为A j点为B i_nex点为C
+    //向量AB
     v1[0] = pl[j].x - pl[i_cur].x;
     v1[1] = pl[j].y - pl[i_cur].y;
     v1[2] = pl[j].z - pl[i_cur].z;
-
+    //向量AB叉乘向量AC
     v2[0] = v1[1]*vz - vy*v1[2];
     v2[1] = v1[2]*vx - v1[0]*vz;
     v2[2] = v1[0]*vy - vx*v1[1];
+    //物理意义是组成的ABC组成的平行四边形面积的平方(为|AC|*h，其中为B到线AC的距离)
 
     double lw = v2[0]*v2[0] + v2[1]*v2[1] + v2[2]*v2[2];
     if(lw > leng_wid)
@@ -886,13 +922,16 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
     }
   }
 
-
+  //|AC|*|AC|/(|AC|*|AC|*h*h)<225
+  //也就是h>1/15 B点到AC的距离要大于0.06667m
+  //太近了不好拟合一个平面
   if((two_dis*two_dis/leng_wid) < p2l_ratio)
   {
-    curr_direct.setZero();
+    curr_direct.setZero(); //太近了法向量直接设置为0
     return 0;
   }
 
+  //把两点之间的距离 按从大到小排个顺序
   uint disarrsize = disarr.size();
   for(uint j=0; j<disarrsize-1; j++)
   {
@@ -909,12 +948,15 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
 
   if(disarr[disarr.size()-2] < 1e-16)
   {
+    //这里可能最近的点还是太近了
     curr_direct.setZero();
     return 0;
   }
 
+  //目前还不太懂为什么给AVIA单独弄了一种，其实我觉得全都可以采用上面这种判定方式（虽然FAST-LIO默认不开特征提取）
   if(lidar_type==AVIA)
   {
+    //点与点之间距离变化太大的时候 可能与激光束是平行的 就也舍弃了
     double dismax_mid = disarr[0]/disarr[disarrsize/2];
     double dismid_min = disarr[disarrsize/2]/disarr[disarrsize-2];
 
@@ -939,6 +981,7 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
   return 1;
 }
 
+//边缘判断
 bool Preprocess::edge_jump_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i, Surround nor_dir)
 {
   if(nor_dir == 0)
@@ -955,10 +998,12 @@ bool Preprocess::edge_jump_judge(const PointCloudXYZI &pl, vector<orgtype> &type
       return false;
     }
   }
+  //下面分别对i-2 i-1和i i+1两种情况时点与点间距进行了判断
   double d1 = types[i+nor_dir-1].dista;
   double d2 = types[i+3*nor_dir-2].dista;
   double d;
 
+  //将大小间距进行调换 大在前 小在后
   if(d1<d2)
   {
     d = d1;
@@ -972,6 +1017,7 @@ bool Preprocess::edge_jump_judge(const PointCloudXYZI &pl, vector<orgtype> &type
  
   if(d1>edgea*d2 || (d1-d2)>edgeb)
   {
+    //假如间距太大 可能是被遮挡，就不把它当作边缘点
     return false;
   }
   

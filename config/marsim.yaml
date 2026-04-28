@@ -23,6 +23,8 @@ mapping:
                    0, 1, 0,
                    0, 0, 1]
 
+    grav_ref_direction: [0.0, 0.0, 1.0]
+
 publish:
     path_en:  true
     scan_publish_en:  true       # false: close all the point cloud output
@@ -31,7 +33,26 @@ publish:
 
 pcd_save:
     pcd_save_en: true
+    pcd_save_each_frame_en: false      # 是否额外输出每一帧的单独 pcd；与最终 map 保存解耦
     pcd_root_path: "/home/workspace/data/pcds"      # trivial scan data
-    map_dir_path: "/home/workspace/data/5.pcd"   # the whole map when press "ctrl + c"
+    map_dir_path: "/home/workspace/data/1.pcd"   # the whole map when press "ctrl + c"
     interval: -1                 # how many LiDAR frames saved in each pcd file; 
                                  # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+ref_map:
+    mode: "no_ref"                      # 固定模式名：
+                                         #   no_ref              : 原始 FAST-LIO 在线建图/发布模式
+                                         #   ref_pub_grav_truth  : 参考图定位 + 发布 G 系点云，同时输出 /grav_truth_Odometry 与固定 /grav_truth_TWG
+                                         #   ref_pub_ref_truth   : 参考图定位 + 直接发布 /ref_truth_cloud_registered、/ref_truth_Odometry 与单位阵 /ref_truth_TWW
+    pcd_path: "/home/workspace/data/tls/reference_map.pcd"  # TLS 参考地图 PCD 文件路径（位于 W/TLS 坐标系）
+    map_downsample_leaf: 0.2            # 参考地图建树前的体素降采样分辨率；地图过大时可适当调大
+    scan_downsample_leaf: 0.2           # 当前帧去畸变整帧点云用于匹配时的轻度降采样分辨率
+    publish_map: true                   # 是否发布 /ref_map，便于在 RViz 中观察 TLS 参考地图
+    frame_id: "tls_map"                # 参考地图输出使用的 W/TLS 坐标系名称
+    # G -> W 的 4x4 外部初值矩阵T^W_G，按行主序填写
+    # 前 3 行第 4 列为平移，第 4 行通常为 [0, 0, 0, 1]
+    # 程序内部会自动求逆得到 T_GW，用于将 TLS 地图先转换回内部匹配坐标系
+    transform_wg: [ 1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, 1 ]

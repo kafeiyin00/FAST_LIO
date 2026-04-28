@@ -1,8 +1,8 @@
 # Input folder containing odom files
-odom_folder: "/home/workspace/data/bags/WHU_TLS_Forest/odoms"
+odom_folder: "/home/workspace/data/bags/Maan_Mountain_Forest/Plot1/grav_truth/grav_truth_odom"
 
 # Output folder for transform matrices
-output_folder: "/home/workspace/data/bags/WHU_TLS_Forest"
+output_folder: "/home/workspace/data/bags/Maan_Mountain_Forest/Plot1/grav_truth"
 
 # Mode: "all", "sequential", or "indexed"
 mode: "all"

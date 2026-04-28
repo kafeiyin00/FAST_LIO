@@ -58,7 +58,9 @@ public:
     
     struct KD_TREE_NODE
     {
+        // 该节点对应的点坐标
         PointType point;
+        // 划分轴
         int division_axis;
         int TreeSize = 1;
         int invalid_point_num = 0;
@@ -73,8 +75,10 @@ public:
         pthread_mutex_t push_down_mutex_lock;
         float node_range_x[2], node_range_y[2], node_range_z[2];
         float radius_sq;
+        // 左右子节点
         KD_TREE_NODE *left_son_ptr = nullptr;
         KD_TREE_NODE *right_son_ptr = nullptr;
+        // 父节点
         KD_TREE_NODE *father_ptr = nullptr;
         // For paper data record
         float alpha_del;
@@ -256,15 +260,24 @@ public:
 
 private:
     // Multi-thread Tree Rebuild
+    // 用于终止多线程重建树的标志
     bool termination_flag = false;
+    // 用于标志是否需要重建树的标志
     bool rebuild_flag = false;
+    // 用于多线程重建树的线程
     pthread_t rebuild_thread;
+    // 用于多线程重建树的互斥锁
     pthread_mutex_t termination_flag_mutex_lock, rebuild_ptr_mutex_lock, working_flag_mutex, search_flag_mutex;
+    // 用于多线程重建树的互斥锁
     pthread_mutex_t rebuild_logger_mutex_lock, points_deleted_rebuild_mutex_lock;
     // queue<Operation_Logger_Type> Rebuild_Logger;
+    // 用于多线程重建树的队列
     MANUAL_Q Rebuild_Logger;
+    // 用于多线程重建树的点云存储
     PointVector Rebuild_PCL_Storage;
+    // 用于多线程重建树的树指针
     KD_TREE_NODE **Rebuild_Ptr = nullptr;
+    // 用于多线程重建树的互斥计数器
     int search_mutex_counter = 0;
     static void *multi_thread_ptr(void *arg);
     void multi_thread_rebuild();
@@ -272,15 +285,23 @@ private:
     void stop_thread();
     void run_operation(KD_TREE_NODE **root, Operation_Logger_Type operation);
     // KD Tree Functions and augmented variables
+    // 用于多线程重建树的临时变量
     int Treesize_tmp = 0, Validnum_tmp = 0;
+    // 用于多线程重建树的临时变量
     float alpha_bal_tmp = 0.5, alpha_del_tmp = 0.0;
+    // 用于多线程重建树的临时变量
     float delete_criterion_param = 0.5f;
+    // 用于多线程重建树的临时变量
     float balance_criterion_param = 0.7f;
+    // 用于多线程重建树的临时变量
     float downsample_size = 0.2f;
     bool Delete_Storage_Disabled = false;
     KD_TREE_NODE *STATIC_ROOT_NODE = nullptr;
+    // 用于多线程重建树的点云存储
     PointVector Points_deleted;
+    // 用于多线程重建树的点云存储
     PointVector Downsample_Storage;
+    // 用于多线程重建树的点云存储
     PointVector Multithread_Points_deleted;
     void InitTreeNode(KD_TREE_NODE *root);
     void Test_Lock_States(KD_TREE_NODE *root);
@@ -335,8 +356,10 @@ public:
     void flatten(KD_TREE_NODE *root, PointVector &Storage, delete_point_storage_set storage_type);
     void acquire_removed_points(PointVector &removed_points);
     BoxPointType tree_range();
-    PointVector PCL_Storage;
+    PointVector PCL_Storage;           // for debug
+    // 设置根节点一开始为空
     KD_TREE_NODE *Root_Node = nullptr;
+    // 设置最大队列长度为0
     int max_queue_size = 0;
 };
 

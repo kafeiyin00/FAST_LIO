@@ -23,6 +23,8 @@ mapping:
                    0, 1, 0,
                    0, 0, 1]
 
+    grav_direction: [0.0, 0.0, -1.0]  # WHU-Helmet重力参考方向
+
 publish:
     path_en:  false
     scan_publish_en:  true       # false: close all the point cloud output
@@ -30,7 +32,50 @@ publish:
     scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
 
 pcd_save:
-    pcd_save_en: false
-    pcd_root_path: "/home/iot/Desktop/pcds"
+    pcd_save_en: true                  # 是否在程序结束时输出累计后的最终 map.pcd；no_ref/grav_truth/ref_truth 都可用
+    pcd_save_each_frame_en: false      # 是否额外输出每一帧的单独 pcd；与最终 map 保存解耦
+    pcd_root_path: "/home/workspace/data/pcds"
+    map_dir_path: "/home/workspace/data/ref_truth_line4.pcd" 
     interval: -1                 # how many LiDAR frames saved in each pcd file; 
                                  # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+ref_map:
+    mode: "ref_pub_ref_truth"                      # 固定模式名：
+                                         #   no_ref              : 原始 FAST-LIO 在线建图/发布模式
+                                         #   ref_pub_grav_truth  : 参考图定位 + 发布 G 系点云，同时输出 /grav_truth_Odometry 与固定 /grav_truth_TWG
+                                         #   ref_pub_ref_truth   : 参考图定位 + 直接发布 /ref_truth_cloud_registered、/ref_truth_Odometry 与单位阵 /ref_truth_TWW
+    pcd_path: "/home/workspace/data/ref/plot1_downsample_003.pcd"  # TLS 参考地图 PCD 文件路径（位于 W/TLS 坐标系）
+    map_downsample_leaf: 0.1            # 参考地图建树前的体素降采样分辨率；地图过大时可适当调大
+    scan_downsample_leaf: 0.2           # 当前帧去畸变整帧点云用于匹配时的轻度降采样分辨率
+    publish_map: true                   # 是否发布 /ref_map，便于在 RViz 中观察 TLS 参考地图
+    frame_id: "tls_map"                # ref_ 前缀话题使用的目标坐标系名称
+    # G -> W 的 4x4 外部初值矩阵T^W_G，按行主序填写
+    # 前 3 行第 4 列为平移，第 4 行通常为 [0, 0, 0, 1]
+    # 程序内部会自动求逆得到 T_GW，用于将 TLS 地图先转换回内部匹配坐标系
+    transform_wg: [  0.058608755469,  0.998273909092,  0.003780360101, 29.239501953125,
+     -0.997743666172,  0.058452539146,  0.033029742539, 36.371036529541,
+      0.032751757652, -0.005707662087,  0.999447226524, -2.689183473587,
+      0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000 ]
+
+# 2026-03-21 Maan Mountain Forest
+# Plot1 各条线路对应的 T^W_G 参考值（按行主序）
+# Line1:
+#   [  0.651831328869,  0.758363962173, -0.000360373582, -8.429303169250,
+#     -0.757977664471,  0.651514291763,  0.031609460711,  7.738677501678,
+#      0.024206262082, -0.020330881700,  0.999500274658, -2.026788473129,
+#      0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000 ]
+# Line2:
+#   [ -0.833758771420,  0.552081942558,  0.007206710055, 42.763992309570,
+#     -0.551588714123, -0.833449304104,  0.033346574754, 16.784042358398,
+#      0.024416469038,  0.023827860132,  0.999417841434, -0.580281853676,
+#      0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000 ]
+# Line3:
+#   [  0.462770670652, -0.886477470398,  0.000930561335, -2.563458204269,
+#      0.886199235916,  0.462651222944,  0.024588819593, -4.993879318237,
+#     -0.022227963433, -0.010554322973,  0.999697208405, -1.050257921219,
+#      0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000 ]
+# Line4:
+#   [  0.058608755469,  0.998273909092,  0.003780360101, 29.239501953125,
+#     -0.997743666172,  0.058452539146,  0.033029742539, 36.371036529541,
+#      0.032751757652, -0.005707662087,  0.999447226524, -2.689183473587,
+#      0.000000000000,  0.000000000000,  0.000000000000,  1.000000000000 ]
