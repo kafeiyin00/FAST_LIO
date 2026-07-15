@@ -9,7 +9,7 @@
 	<!--rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" /-->
 	<!--rosparam command="load" file="$(find fast_lio)/config/ouster128.yaml" /-->
     <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<arg name="bag_file"  default="/home/workspace/data/bags/Maan_Mountain_Forest/Plot1/Line4_2026-03-21-14-35-17.bag"/> 
+	<arg name="bag_file"  default="/home/workspace/data/bags/Maan_Mountain_Forest/Plot4/Line3_recollect_2026-03-21-17-53-05.bag"/> 
 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
