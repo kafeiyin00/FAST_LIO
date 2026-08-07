@@ -328,3 +328,7 @@ The main structure of this UAV is 3d printed (Aluminum or PLA), the .stl file wi
 ## 6.Acknowledgments
 
 Thanks for LOAM(J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time), [Livox_Mapping](https://github.com/Livox-SDK/livox_mapping), [LINS](https://github.com/ChaoqinRobotics/LINS---LiDAR-inertial-SLAM) and [Loam_Livox](https://github.com/hku-mars/loam_livox).
+
+## 7. WHU-TLS validation helpers
+
+WHU-TLS-specific validation launch files, data aggregation tools, and comparison conclusions are kept in [`AI_prompt/README.md`](AI_prompt/README.md). General FAST_LIO source, configurations, and operational launch files remain in their canonical directories.

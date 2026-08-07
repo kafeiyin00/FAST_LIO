@@ -1611,7 +1611,8 @@ int main(int argc, char** argv)
     nh.param<bool>("pcd_save/pcd_save_en", pcd_save_en, false);
     nh.param<bool>("pcd_save/pcd_save_each_frame_en", pcd_save_each_frame_en, false);
     nh.param<bool>("pcd_save/trajectory_save_en",trajectory_save_en,false);
-    nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/home/workspace/data/pcds");
+    // Original default: /home/workspace/data/pcds
+    nh.param<string>("pcd_save/pcd_root_path", pcd_root_path, "/home/workspace/data/trivial_pcd");
     nh.param<string>("pcd_save/map_dir_path", map_dir_path, "/home/workspace/data/map.pcd");
     nh.param<int>("pcd_save/interval", pcd_save_interval, -1);
     //外参矩阵
@@ -1626,10 +1627,23 @@ int main(int argc, char** argv)
     nh.param<string>("ref_map/frame_id", ref_frame_id, string("tls_map"));
     nh.param<vector<double>>("ref_map/transform_wg", ref_transform_wg_vec, vector<double>());
 
-    // 加载重力参考方向参数（默认为Z轴负方向）
+    // Prefer the current key, but keep the historical Marsim configuration
+    // working. The repository used grav_ref_direction before grav_direction.
     vector<double> grav_dir;
-    nh.param<vector<double>>("mapping/grav_direction", grav_dir, 
-                            vector<double>{0.0, 0.0, -1.0});
+    if (!nh.getParam("mapping/grav_direction", grav_dir))
+    {
+        nh.param<vector<double>>("mapping/grav_ref_direction", grav_dir,
+                                vector<double>{0.0, 0.0, -1.0});
+        if (nh.hasParam("mapping/grav_ref_direction"))
+        {
+            ROS_WARN("mapping/grav_ref_direction is deprecated; use mapping/grav_direction");
+        }
+    }
+    if (grav_dir.size() != 3)
+    {
+        ROS_WARN("Gravity reference direction must contain 3 values; using [0, 0, -1]");
+        grav_dir = {0.0, 0.0, -1.0};
+    }
     grav_direction << grav_dir[0], grav_dir[1], grav_dir[2];
     ROS_INFO("Gravity reference direction: [%.5f, %.5f, %.5f]", 
              grav_direction[0], grav_direction[1], grav_direction[2]);
