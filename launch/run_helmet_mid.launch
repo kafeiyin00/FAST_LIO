@@ -5,12 +5,11 @@
 
 	<arg name="rviz" default="true" />
 
-	<rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" />
-	<!--rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" /-->
+	<!--rosparam command="load" file="$(find fast_lio)/config/mid360.yaml" /-->
+	<rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" />
 	<!--rosparam command="load" file="$(find fast_lio)/config/ouster128.yaml" /-->
-    <!-- <arg name="bag_file"  default="/media/iot/JianpingData/NTU_Helmet/campus/helmet/helmet_03.bag"/> -->
-	<!-- Original path: /home/workspace/data/bags/Maan_Mountain_Forest/Plot4/Line3_recollect_2026-03-21-17-53-05.bag -->
-	<arg name="bag_file"  default="/home/workspace/data/bag/Maan_Mountain_Forest/Plot4/Line3_recollect_2026-03-21-17-53-05.bag"/>
+	<!--arg name="bag_file"  default="/home/workspace/data/bag/Maan_Mountain_Forest/Plot4/Line3_recollect_2026-03-21-17-53-05.bag"/-->
+    <arg name="bag_file"  default="/home/workspace/simulation/data/bag/test1_2026-08-21-07-00-28.bag"/>
 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
@@ -39,9 +38,11 @@
 	<node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio)/rviz_cfg/helmet_livox.rviz" />
 	</group>
 	
-    <!-- <node required="$(arg autorun)" pkg="rosbag" type="play" name="rosbag_player"
-          args="- -clock $(arg bag_file) -r 2.0 -s 0"
-          launch-prefix="bash -c 'sleep 1; $0 $@' "/> -->
-
+    <node if="$(arg autorun)"
+      pkg="rosbag"
+      type="play"
+      name="rosbag_player"
+      args="$(arg bag_file)"
+      launch-prefix="bash -c 'sleep 1; exec &quot;$0&quot; &quot;$@&quot;'"/>
 
 </launch>

@@ -8,18 +8,18 @@ frame_number: 80
 #                           true  输入 /cloud_registered + /Odometry
 #   ref_pub_grav_truth   -> true，输入 /cloud_registered + /grav_truth_TWG
 #   ref_pub_ref_truth    -> true，输入 /ref_truth_cloud_registered + /ref_truth_TWW
-save_registered_data: true
+save_registered_data: false
 
 
 # 是否应用全局坐标系转换（仿真数据使用，轨迹起点的相对关系已知）
 # 该配置与 ref_map.mode 独立：它只影响 generate_block 输出的位姿/文件，不改变输入话题选择
-apply_global_shift: false
+apply_global_shift: true
 
 # 全局坐标系转换矩阵 T^G_L (4x4, 行优先)
 global_shift: [
-    1.0,  0.0, 0.0, 9.29,
-    0.0,  1.0, 0.0, 26.52,
-    0.0,  0.0, 1.0, 4.63,
+    1.0,  0.0, 0.0, 21.20,
+    0.0,  1.0, 0.0, 7.42,
+    0.0,  0.0, 1.0, 2.80,
     0.0,  0.0, 0.0, 1.0
 ]
 

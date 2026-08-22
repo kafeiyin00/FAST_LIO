@@ -332,3 +332,40 @@ Thanks for LOAM(J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-
 ## 7. WHU-TLS validation helpers
 
 WHU-TLS-specific validation launch files, data aggregation tools, and comparison conclusions are kept in [`AI_prompt/README.md`](AI_prompt/README.md). General FAST_LIO source, configurations, and operational launch files remain in their canonical directories.
+
+## 固定位置项目环境（附加说明）
+
+上面的 FAST_LIO 正常安装、编译和 launch 说明继续保留。固定环境先安装 Livox SDK、构建 Livox driver，再编译 FAST_LIO；不向 `~/.bashrc` 追加路径。
+
+```bash
+cmake -S /home/workspace/simulation/download/Livox-SDK \
+  -B /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2 \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2 --parallel 2
+cmake --install /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2
+
+mkdir -p /opt/ws_livox_ros_driver/src
+ln -s /home/workspace/simulation/download/livox_ros_driver/src/livox_ros_driver \
+  /opt/ws_livox_ros_driver/src/livox_ros_driver
+source /opt/ros/noetic/setup.bash
+cd /opt/ws_livox_ros_driver
+catkin_make -j2 -DCMAKE_BUILD_TYPE=Release
+
+source /home/workspace/simulation/environment/shell_entries.sh
+enter-simulation
+cd "$SIMULATION_ROOT"
+catkin_make --force-cmake --pkg fast_lio -j2 \
+  -DCMAKE_BUILD_TYPE=Release -DCeres_DIR="$Ceres_DIR"
+```
+
+实际运行：
+
+```bash
+enter-simulation
+roslaunch fast_lio run_marsim_simulation.launch rviz:=false
+
+# 或运行正式 bag 入口：
+roslaunch fast_lio run_helmet_mid.launch autorun:=true rviz:=false
+```
+
+相同的固定位置创建、编译和运行引导也保存在 [`AI_prompt/README.md`](AI_prompt/README.md)。
