@@ -4,32 +4,12 @@
 
 本目录不替代正式源码、launch 或 config。
 
-## 固定位置环境、编译与运行
+## 独立环境导航
 
-```bash
-cmake -S /home/workspace/simulation/download/Livox-SDK \
-  -B /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2 \
-  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local
-cmake --build /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2 --parallel 2
-cmake --install /home/workspace/simulation/environment/build/livox-sdk-2.3.0-v2
-
-mkdir -p /opt/ws_livox_ros_driver/src
-ln -s /home/workspace/simulation/download/livox_ros_driver/src/livox_ros_driver \
-  /opt/ws_livox_ros_driver/src/livox_ros_driver
-source /opt/ros/noetic/setup.bash
-cd /opt/ws_livox_ros_driver && catkin_make -j2 -DCMAKE_BUILD_TYPE=Release
-
-source /home/workspace/simulation/environment/shell_entries.sh
-enter-simulation
-cd "$SIMULATION_ROOT"
-catkin_make --force-cmake --pkg fast_lio -j2 \
-  -DCMAKE_BUILD_TYPE=Release -DCeres_DIR="$Ceres_DIR"
-```
-
-```bash
-enter-simulation
-roslaunch fast_lio run_marsim_simulation.launch rviz:=false
-roslaunch fast_lio run_helmet_mid.launch autorun:=true rviz:=false
-```
+固定依赖和运行边界见
+[`INDEPENDENT_ENVIRONMENT.md`](../../INDEPENDENT_ENVIRONMENT.md)，FAST_LIO 的标准
+增量编译入口见其中的
+[FAST_LIO 小节](../../INDEPENDENT_ENVIRONMENT.md#fast-lio-build)。不要创建
+`catkin_make` 不会读取的 defaults YAML。
 
 检测资产职责：`validation/run_whu_validation.launch` 与 `data_tools/aggregate_whu_validation.py` 归 [`testing/`](testing/README.md) 导航；正式运行仍使用仓库 launch。
