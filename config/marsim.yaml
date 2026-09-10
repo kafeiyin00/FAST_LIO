@@ -23,7 +23,7 @@ mapping:
                    0, 1, 0,
                    0, 0, 1]
 
-    grav_ref_direction: [0.0, 0.0, 1.0]
+    grav_direction: [0.0, 0.0, 1.0]
 
 publish:
     path_en:  true

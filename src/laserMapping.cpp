@@ -1627,18 +1627,9 @@ int main(int argc, char** argv)
     nh.param<string>("ref_map/frame_id", ref_frame_id, string("tls_map"));
     nh.param<vector<double>>("ref_map/transform_wg", ref_transform_wg_vec, vector<double>());
 
-    // Prefer the current key, but keep the historical Marsim configuration
-    // working. The repository used grav_ref_direction before grav_direction.
     vector<double> grav_dir;
-    if (!nh.getParam("mapping/grav_direction", grav_dir))
-    {
-        nh.param<vector<double>>("mapping/grav_ref_direction", grav_dir,
-                                vector<double>{0.0, 0.0, -1.0});
-        if (nh.hasParam("mapping/grav_ref_direction"))
-        {
-            ROS_WARN("mapping/grav_ref_direction is deprecated; use mapping/grav_direction");
-        }
-    }
+    nh.param<vector<double>>("mapping/grav_direction", grav_dir,
+                            vector<double>{0.0, 0.0, -1.0});
     if (grav_dir.size() != 3)
     {
         ROS_WARN("Gravity reference direction must contain 3 values; using [0, 0, -1]");

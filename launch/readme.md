@@ -40,7 +40,7 @@ WHU 使用 `save_registered_data=false`：每个 submap 由 80 帧过滤后的 `
 
 ### 重力参数兼容性
 
-`config/marsim.yaml` 历史上使用 `mapping/grav_ref_direction`，较新的 C++ 使用 `mapping/grav_direction`。当前 `laserMapping.cpp` 已兼容两个键，并优先使用新键。若日志显示：
+`config/marsim.yaml`和当前C++统一使用`mapping/grav_direction`。若日志显示：
 
 ```text
 Gravity reference direction: [0.00000, 0.00000, -1.00000]

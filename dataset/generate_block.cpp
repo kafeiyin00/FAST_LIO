@@ -608,7 +608,7 @@ int main(int argc, char** argv)
     nh.param<std::string>("lidar_msg_name",lidar_topic, "/cloud_registered");
     nh.param<std::string>("odometry_msg_name",odometry_topic, "/Odometry"); 
     nh.param<std::string>("dataFolder",dataFolder, "/home/iot/workspace/data/frames");
-    nh.param<int>("frame_number",frame_size, 50);
+    nh.param<int>("frame_number",frame_size, 80);
     nh.param<std::string>("pointsFolder",pointsFolder, "/home/iot/workspace/data/points");
     nh.param<std::string>("ref_map/mode", ref_mode, REF_MODE_NO_REF);
 
