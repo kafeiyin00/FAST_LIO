@@ -1,3 +1,5 @@
+imu_init_time_window: 1.0
+
 common:
     lid_topic:  "/quad0_pcl_render_node/sensor_cloud"
     imu_topic:  "/quad_0/imu"

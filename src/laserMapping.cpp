@@ -103,6 +103,7 @@ string map_file_path, lid_topic, imu_topic; //设置地图文件路径，雷达t
 
 double res_mean_last = 0.05, total_residual = 0.0;                                                 //设置残差平均值，残差总和
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;                                        //设置雷达时间戳，imu时间戳
+double imu_init_time_window = 1.0;
 double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;                       //设置imu的角速度协方差，加速度协方差，角速度协方差偏置，加速度协方差偏置
 double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0; //设置滤波器的最小尺寸，地图的最小尺寸，视野角度
 //设置立方体长度，视野一半的角度，视野总角度，总距离，雷达结束时间，雷达初始时间
@@ -1176,6 +1177,7 @@ bool sync_packages(MeasureGroup &meas)
     lidar_buffer.pop_front();
     time_buffer.pop_front();
     lidar_pushed = false;
+    // TEMP DIAGNOSTIC disabled after attempt_013.
     return true;
 }
 
@@ -1594,6 +1596,7 @@ int main(int argc, char** argv)
     //IMU偏置噪声参数
     nh.param<double>("mapping/b_gyr_cov",b_gyr_cov,0.0001);
     nh.param<double>("mapping/b_acc_cov",b_acc_cov,0.0001);
+    nh.param<double>("imu_init_time_window", imu_init_time_window, 1.0);
     //点云预处理参数
     nh.param<double>("preprocess/blind", p_pre->blind, 0.01);
     nh.param<int>("preprocess/lidar_type", p_pre->lidar_type, AVIA);
@@ -1724,6 +1727,7 @@ int main(int argc, char** argv)
     p_imu->set_acc_cov(V3D(acc_cov, acc_cov, acc_cov));
     p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));
     p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
+    p_imu->set_imu_init_time_window(imu_init_time_window);
 
     //初始化EKF迭代器
     double epsi[23] = {0.001};

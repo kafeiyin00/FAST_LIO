@@ -520,6 +520,7 @@ void Preprocess::marsim_handler(const sensor_msgs::PointCloud2::ConstPtr &msg)
           }
       }
   }
+  // TEMP DIAGNOSTIC disabled after attempt_013.
 }
 
 

@@ -28,7 +28,6 @@
 
 // ==================== IMU初始化参数 ====================
 // 【新方式】基于时间窗口 + 样本数的双重约束
-#define IMU_INIT_TIME_WINDOW (1.0)  //时间窗口（秒）
 #define IMU_INIT_MIN_SAMPLES (200)  //最少样本数
 // 【旧方式】迭代计数（已弃用，保留以便参考）
 // #define MAX_INI_COUNT (80)
@@ -55,6 +54,7 @@ class ImuProcess
   void set_acc_cov(const V3D &scaler);
   void set_gyr_bias_cov(const V3D &b_g);
   void set_acc_bias_cov(const V3D &b_a);
+  void set_imu_init_time_window(double seconds) { imu_init_time_window_ = seconds; }
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
 
@@ -87,6 +87,7 @@ class ImuProcess
   double start_timestamp_;             //开始时间戳
   double last_lidar_end_time_;         //上一帧稠辑橢（最后一个点）是否是时间戳
   int    init_iter_num = 1;            //初始化迭代次数
+  double imu_init_time_window_ = 1.0;  //IMU初始化时间窗口（秒）
   bool   b_first_frame_ = true;        //是否是第一帧
   
   
@@ -201,7 +202,7 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
   double init_time_elapsed = meas.lidar_beg_time - first_lidar_time;
   // 【新】同时检查时间和样本数：time > 3.0s AND samples >= 600
   // 【旧】if (init_iter_num > MAX_INI_COUNT)
-  if (init_time_elapsed > IMU_INIT_TIME_WINDOW && N >= IMU_INIT_MIN_SAMPLES)
+  if (init_time_elapsed > imu_init_time_window_ && N >= IMU_INIT_MIN_SAMPLES)
   {
     return;
   }
@@ -481,7 +482,7 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
     double init_time_elapsed = meas.lidar_beg_time - first_lidar_time;
     // 【新】同时检查时间和样本数：time > 3.0s AND samples >= 600
     // 【旧】if (init_iter_num > MAX_INI_COUNT)
-    if (init_time_elapsed > IMU_INIT_TIME_WINDOW && init_iter_num >= IMU_INIT_MIN_SAMPLES)
+    if (init_time_elapsed > imu_init_time_window_ && init_iter_num >= IMU_INIT_MIN_SAMPLES)
     {
       //在上面IMU_init()基础上乘上缩放系数
       cov_acc *= pow(G_m_s2 / mean_acc.norm(), 2);
@@ -492,7 +493,7 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
       cov_acc = cov_acc_scale;
       cov_gyr = cov_gyr_scale;
       ROS_INFO("IMU Initial Done! Time: %.2fs (>%.1fs), Samples: %d (>=%d), Gravity: (%.4f, %.4f, %.4f) m/s^2", 
-               init_time_elapsed, IMU_INIT_TIME_WINDOW, init_iter_num, IMU_INIT_MIN_SAMPLES, 
+               init_time_elapsed, imu_init_time_window_, init_iter_num, IMU_INIT_MIN_SAMPLES, 
                imu_state.grav[0], imu_state.grav[1], imu_state.grav[2]);
       // ROS_INFO("IMU Initial Done: Gravity: %.4f %.4f %.4f %.4f; state.bias_g: %.4f %.4f %.4f; acc covarience: %.8f %.8f %.8f; gry covarience: %.8f %.8f %.8f",\
       //          imu_state.grav[0], imu_state.grav[1], imu_state.grav[2], mean_acc.norm(), cov_bias_gyr[0], cov_bias_gyr[1], cov_bias_gyr[2], cov_acc[0], cov_acc[1], cov_acc[2], cov_gyr[0], cov_gyr[1], cov_gyr[2]);

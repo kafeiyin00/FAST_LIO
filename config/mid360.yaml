@@ -1,3 +1,5 @@
+imu_init_time_window: 1.0
+
 common:
     lid_topic:  "/livox/lidar"
     imu_topic:  "/livox/imu"
