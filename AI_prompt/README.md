@@ -4,6 +4,19 @@
 
 本目录不替代正式源码、launch 或 config。
 
+## 历史 WHU/Maan submap 版本入口
+
+使用 `/home/workspace/simulation/data/bag_single/` 和 Forest_CSLAM `data/frameReg/` 中的历史
+submap 前，必须先读：
+
+- [IMPORTANT_CHANGES.md](IMPORTANT_CHANGES.md) 的“历史离线 WHU/Maan 版本与当前版本差异”；
+- [ALGORITHM_TESTS.md](ALGORITHM_TESTS.md) 的 `HO-20260921-002` 动态复现结果。
+
+关键边界：WHU 历史处理链不是一个可证明的干净 commit，而是 `fe7222` estimator/core 与后期
+generate_block/global-shift 语义组成的 composite；它使用旧 `MAX_INI_COUNT=10`。Maan 历史
+canonical `grav_truth` submap 对应 `145c731` 源码内容、逐 Line `T_W_G` 和 1x 回放。不得用当前
+FAST-LIO 默认参数重跑 WHU 后把结果描述为历史等价，也不得用 4x Maan 回放建立历史基线。
+
 ## 独立环境导航
 
 固定依赖和运行边界见
