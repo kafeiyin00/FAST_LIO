@@ -1,4 +1,5 @@
-imu_init_time_window: 1.0
+imu_init_time_window: 0.0 #1.0
+imu_init_count: 11 #200
 
 common:
     lid_topic:  "/quad0_pcl_render_node/sensor_cloud"
@@ -38,7 +39,7 @@ pcd_save:
     pcd_save_each_frame_en: false      # 是否额外输出每一帧的单独 pcd；与最终 map 保存解耦
     # Original path: /home/workspace/data/pcds
     pcd_root_path: "/home/workspace/simulation/data/trivial_pcd"      # trivial scan data
-    map_dir_path: "/home/workspace/simulation/data/map/1.pcd"   # the whole map when press "ctrl + c"
+    map_dir_path: "/home/workspace/simulation/data/map/5.pcd"   # the whole map when press "ctrl + c"
     interval: -1                 # how many LiDAR frames saved in each pcd file; 
                                  # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
 

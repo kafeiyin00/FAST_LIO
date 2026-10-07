@@ -9,7 +9,7 @@
 	<rosparam command="load" file="$(find fast_lio)/config/marsim.yaml" />
 	<!--rosparam command="load" file="$(find fast_lio)/config/ouster128.yaml" /-->
 	<!--arg name="bag_file"  default="/home/workspace/data/bag/Maan_Mountain_Forest/Plot4/Line3_recollect_2026-03-21-17-53-05.bag"/-->
-    <arg name="bag_file"  default="/home/workspace/simulation/data/bag/test1_2026-08-21-07-00-28.bag"/>
+    <arg name="bag_file"  default="/home/workspace/simulation/data/bag_single/test_whu/fifth_2026-10-06-04-50-52.bag"/>
 
 
 	<param name="feature_extract_enable" type="bool" value="0"/>
@@ -28,8 +28,8 @@
 		    ref_pub_grav_truth 使用 /cloud_registered + /grav_truth_Odometry，
 		    ref_pub_ref_truth 使用 /ref_truth_cloud_registered + /ref_truth_Odometry -->
     <param name="image_msg_name"  type="string"   value="/camera0/compressed"/>
-    <param name="dataFolder"  type="string"   value="$(arg bag_file)_ref_truth_frames"/>
-	<param name="pointsFolder"  type="string"   value="$(arg bag_file)_ref_truth_points"/>
+    <param name="dataFolder"  type="string"   value="$(arg bag_file)_frames"/>
+	<param name="pointsFolder"  type="string"   value="$(arg bag_file)_points"/>
 	<node if="$(arg enable_generate_block)" pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/>
     <!--<node pkg="fast_lio" type="generate_block" name="generate_block" output="screen"/> -->
 
