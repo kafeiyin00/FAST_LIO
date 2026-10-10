@@ -1,5 +1,10 @@
 # FAST_LIO AI 辅助资料
 
+当前同步回溯点为`baseline-sim-whu-real-maan-20261009`。读取
+[IMPORTANT_CHANGES.md](IMPORTANT_CHANGES.md)顶部的baseline发布记录，确认完整commit、依赖版本、
+验证范围和有效配置；五仓库对应关系见
+[统一baseline索引](/home/workspace/Forest_Interface/AI_prompt/indexes/BASELINE_TAG_INDEX.md)。
+
 本目录统一分为三类：[`IMPORTANT_CHANGES.md`](IMPORTANT_CHANGES.md)、[`ALGORITHM_TESTS.md`](ALGORITHM_TESTS.md) 和 [`testing/`](testing/README.md)。现有 `validation/`、`data_tools/` 是第三类检测资产；本 README 负责导航，不再混合增长全部历史正文。
 
 本目录不替代正式源码、launch 或 config。

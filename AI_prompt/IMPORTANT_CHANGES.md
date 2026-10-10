@@ -1,5 +1,28 @@
 # FAST_LIO 重要更改记录
 
+## 2026-10-09：WHU/Maan同步baseline回溯点
+
+- annotated tag：`baseline-sim-whu-real-maan-20261009`。
+- tagged commit：`cd967970a002325329bc2bae54676f1304ccf24d`，发布分支`dev-zhaoxin`。
+- tag object：`1dbc9dc93c422d02fd0abf673272ea8ce8a79f73`。
+- 外层RL baseline的FAST_LIO gitlink恰好指向本commit；分别核对外层tag与子模块tag。
+- WHU配置：`config/marsim.yaml`及`config/generate_block.yaml`；初始化支持window/count参数化，
+  renderer-ready新WHU验收采用0.0 s/11 samples、80帧submap。测试覆盖值以冻结任务manifest为准。
+- Maan配置：`config/mid360.yaml`与其real/reference-map流程，使用实采Livox输入、1x播放、
+  逐Plot TLS及逐Line `T_W_G`；历史WHU composite与Maan旧实现身份继续按下文区分。
+- tag固定源码和版本内配置，不包含bag、TLS map、submap或当前build/devel；回溯必须同时保存
+  输入hash、有效参数和依赖环境，不能用tag代替这些条件。
+- 证据：`/home/workspace/Forest_CSLAM/.ai/results/HO-20260902-001-result.md`、
+  `/home/workspace/Forest_CSLAM/AI_test/HO-20260921-002/RESULT.md`和
+  `/home/workspace/Forest_CSLAM/.ai/results/HO-20261007-001-result.md`。
+- 发布记录：`/home/workspace/simulation/.ai/results/HO-20261009-001-result.md`。
+
+同名tag在不同仓库指向不同commit；回溯时以tag剥离后的完整commit为准，不能把tag名称相同
+解释为五个仓库具有相同SHA。本节是tag发布后的文档补充，已发布tag不移动；它不意味着
+本节已包含在tag指向的历史tree中。验证证据冻结于对应任务，不用当前HEAD反向替换历史身份。
+
+统一索引：[五仓库baseline索引](/home/workspace/Forest_Interface/AI_prompt/indexes/BASELINE_TAG_INDEX.md)。
+
 ## 2026-09-29：历史离线 WHU/Maan 版本与当前版本差异（HO-20260921-002）
 
 ### 历史 WHU 不是单一干净 revision
